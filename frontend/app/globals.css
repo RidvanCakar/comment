@@ -1,0 +1,107 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg-base: var(--bg-base);
+  --color-bg-surface: var(--bg-surface);
+  --color-text-primary: var(--text-primary);
+  --color-text-muted: var(--text-muted);
+  --color-border-subtle: var(--border-subtle);
+  --color-fill-muted: var(--fill-muted);
+  --color-sentiment-positive: #8FB89B;
+  --color-sentiment-negative: #D96C6C;
+  --color-sentiment-neutral: #6B7280;
+  --color-accent-record: #F2A93B;
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-space-grotesk), sans-serif;
+  --font-mono: var(--font-jetbrains-mono), monospace;
+}
+
+/* Varsayılan: koyu tema (script çalışana kadar flaş önleme) */
+:root {
+  --bg-base: #12141A;
+  --bg-surface: #1B1E27;
+  --text-primary: #F2F0EA;
+  --text-muted: #8A8F9C;
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --fill-muted: rgba(255, 255, 255, 0.06);
+  color-scheme: dark;
+}
+
+html.dark {
+  --bg-base: #12141A;
+  --bg-surface: #1B1E27;
+  --text-primary: #F2F0EA;
+  --text-muted: #8A8F9C;
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --fill-muted: rgba(255, 255, 255, 0.06);
+  color-scheme: dark;
+}
+
+html.light {
+  --bg-base: #EDEAE3;
+  --bg-surface: #F8F6F1;
+  --text-primary: #1A1C22;
+  --text-muted: #5A6170;
+  --border-subtle: rgba(26, 28, 34, 0.12);
+  --fill-muted: rgba(26, 28, 34, 0.07);
+  color-scheme: light;
+}
+
+body {
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  overflow-x: hidden;
+  overflow-y: auto;
+  min-width: 0;
+}
+
+/* Özel Animasyonlar */
+@keyframes pulse-record {
+  0%, 100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(242, 169, 59, 0.4);
+  }
+  50% {
+    opacity: 0.5;
+    box-shadow: 0 0 10px 4px rgba(242, 169, 59, 0.7);
+  }
+}
+
+.animate-record-dot {
+  animation: pulse-record 2s infinite ease-in-out;
+}
+
+@keyframes wave-grow {
+  0%, 100% {
+    transform: scaleY(0.15);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+.waveform-bar {
+  transform-origin: center;
+  animation: wave-grow 1.4s ease-in-out infinite;
+}
+
+.eq-bar-segment {
+  transition: height 1s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.3s;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.35s ease-out both;
+}
