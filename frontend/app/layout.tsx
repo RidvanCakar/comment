@@ -22,8 +22,12 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "YorumAI - Stüdyo Analiz Masası",
-  description: "YouTube videolarınız için yayın odası temalı, yapay zeka destekli yorum analiz stüdyosu.",
+  title: {
+    default: "YorumAI — YouTube Yorum Analiz Platformu",
+    template: "%s | YorumAI",
+  },
+  description:
+    "YouTube yorumlarını yapay zekâ ile analiz ederek içerik üreticileri için ölçülebilir içgörülere ve somut video önerilerine dönüştürür.",
 };
 
 const themeInitScript = `

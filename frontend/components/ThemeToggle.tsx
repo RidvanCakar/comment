@@ -15,14 +15,18 @@ export default function ThemeToggle() {
   const [theme, setTheme] = useState<Theme | null>(null);
 
   useEffect(() => {
-    const stored = localStorage.getItem("theme");
-    const current =
-      stored === "light" || stored === "dark"
-        ? stored
-        : document.documentElement.classList.contains("light")
-          ? "light"
-          : "dark";
-    setTheme(current);
+    const frame = requestAnimationFrame(() => {
+      const stored = localStorage.getItem("theme");
+      const current =
+        stored === "light" || stored === "dark"
+          ? stored
+          : document.documentElement.classList.contains("light")
+            ? "light"
+            : "dark";
+      setTheme(current);
+    });
+
+    return () => cancelAnimationFrame(frame);
   }, []);
 
   const toggleTheme = () => {
