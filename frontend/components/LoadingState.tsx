@@ -10,7 +10,7 @@ const loadingSteps = [
   "Rapor hazırlanıyor...",
 ];
 
-export default function LoadingState() {
+export default function LoadingState({ message }: { message?: string }) {
   const [stepIndex, setStepIndex] = useState(0);
 
   useEffect(() => {
@@ -44,7 +44,7 @@ export default function LoadingState() {
       </div>
 
       <p className="text-text-primary text-sm sm:text-base font-sans tracking-wide min-h-6 px-1 break-words">
-        {loadingSteps[stepIndex]}
+        {message || loadingSteps[stepIndex]}
       </p>
 
       <div className="w-full bg-bg-base h-1.5 rounded-full overflow-hidden mt-6 sm:mt-8">

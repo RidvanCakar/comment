@@ -1,130 +1,110 @@
 "use client";
 
 import Link from "next/link";
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import AnalyzeForm from "@/components/AnalyzeForm";
-import SentimentTabs from "@/components/SentimentTabs";
+import CreditsExhaustedState from "@/components/analyze/CreditsExhaustedState";
+import CreditUpgradeButton from "@/components/analyze/CreditUpgradeButton";
+import AnalysisResultsView from "@/components/analyze/AnalysisResultsView";
+import QuotaBanner from "@/components/analyze/QuotaBanner";
 import LoadingState from "@/components/LoadingState";
 import ErrorState from "@/components/ErrorState";
 import ThemeToggle from "@/components/ThemeToggle";
-import LandingIcon from "@/components/landing/LandingIcon";
-import PdfDownloadButton from "@/components/pdf/PdfDownloadButton";
-import type { PdfReportData } from "@/components/pdf/ReportDocument";
-
-interface AnalyzeResponse {
-  video_id: string;
-  video_title: string;
-  channel_title: string;
-  comment_count_analyzed: number;
-  cached: boolean;
-  created_at: string | null;
-  analysis: {
-    sentiment_distribution: {
-      positive_percent: number;
-      negative_percent: number;
-      neutral_percent: number;
-    };
-    topics: {
-      topic: string;
-      percent: number;
-      sentiment: "positive" | "negative" | "neutral" | "mixed";
-      insight: string;
-      example_comments?: string[];
-    }[];
-    overall_summary: string;
-    top_recommendation:
-      | string
-      | {
-          insight: string;
-          action: string;
-          expected_impact: string;
-        };
-  };
-}
-
-function normalizeRecommendation(
-  rec: AnalyzeResponse["analysis"]["top_recommendation"]
-): { insight: string; action: string; expected_impact: string } {
-  if (typeof rec === "string") {
-    return { insight: "", action: rec, expected_impact: "" };
-  }
-  return {
-    insight: rec?.insight || "",
-    action: rec?.action || "",
-    expected_impact: rec?.expected_impact || "",
-  };
-}
-
-function toPdfReportData(data: AnalyzeResponse): PdfReportData {
-  const recommendation = normalizeRecommendation(
-    data.analysis.top_recommendation
-  );
-
-  return {
-    videoTitle: data.video_title,
-    channelTitle: data.channel_title,
-    analyzedCommentCount: data.comment_count_analyzed,
-    analysisDate: data.created_at,
-    summary: data.analysis.overall_summary,
-    sentiment: {
-      positive: data.analysis.sentiment_distribution.positive_percent,
-      negative: data.analysis.sentiment_distribution.negative_percent,
-      neutral: data.analysis.sentiment_distribution.neutral_percent,
-    },
-    topics: data.analysis.topics,
-    recommendation: {
-      insight: recommendation.insight,
-      action: recommendation.action,
-      expectedImpact: recommendation.expected_impact,
-    },
-  };
-}
+import AuthNav from "@/components/auth/AuthNav";
+import { useAuth } from "@/components/auth/AuthProvider";
+import { apiRequest, isCreditsExhausted, type QuotaInfo } from "@/lib/api";
+import { requestVideoAnalysis, type AnalyzeResult } from "@/lib/analyze-request";
+import { saveAnalysisHistory } from "@/lib/analysis-history";
 
 export default function AnalyzePage() {
+  const { user, refresh } = useAuth();
+  const searchParams = useSearchParams();
+  const prefilledUrl = searchParams.get("url") || "";
   const [isLoading, setIsLoading] = useState(false);
+  const [waitingForServer, setWaitingForServer] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [data, setData] = useState<AnalyzeResponse | null>(null);
+  const [creditsExhausted, setCreditsExhausted] = useState(false);
+  const [quota, setQuota] = useState<QuotaInfo | null>(null);
+  const [data, setData] = useState<AnalyzeResult | null>(null);
   const [lastUrl, setLastUrl] = useState("");
+  const analyzeInFlight = useRef(false);
+
+  const loadQuota = useCallback(async () => {
+    try {
+      const next = await apiRequest<QuotaInfo>("/credits/quota", { cache: "no-store" });
+      setQuota(next);
+    } catch {
+      setQuota(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadQuota();
+  }, [loadQuota, user]);
 
   const handleAnalyze = async (videoUrl: string, forceRefresh: boolean) => {
+    if (analyzeInFlight.current) return;
+    analyzeInFlight.current = true;
     setIsLoading(true);
+    setWaitingForServer(false);
     setError(null);
+    setCreditsExhausted(false);
     setData(null);
     setLastUrl(videoUrl);
 
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-
     try {
-      const res = await fetch(`${apiUrl}/analyze`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          video_url: videoUrl,
-          force_refresh: forceRefresh,
-        }),
-      });
-
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.detail || `Sunucu hatası: ${res.statusText}`);
-      }
-
-      const result: AnalyzeResponse = await res.json();
+      const result = await requestVideoAnalysis(
+        videoUrl,
+        forceRefresh,
+        () => setWaitingForServer(true),
+      );
       setData(result);
+      if (result.quota) setQuota(result.quota);
+      await refresh().catch(() => undefined);
+      if (user) {
+        saveAnalysisHistory(user.id, {
+          videoId: result.video_id,
+          videoUrl,
+          videoTitle: result.video_title,
+          channelTitle: result.channel_title,
+          commentCount: result.comment_count_analyzed,
+          summary: result.analysis.overall_summary,
+          positivePercent: result.analysis.sentiment_distribution.positive_percent,
+          negativePercent: result.analysis.sentiment_distribution.negative_percent,
+          neutralPercent: result.analysis.sentiment_distribution.neutral_percent,
+          analyzedAt: result.created_at || new Date().toISOString(),
+        });
+      }
     } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : "Bilinmeyen bir hata oluştu.";
-      setError(message);
+      if (isCreditsExhausted(err)) {
+        setCreditsExhausted(true);
+        setError(null);
+        void loadQuota();
+      } else {
+        const message =
+          err instanceof Error ? err.message : "Bilinmeyen bir hata oluştu.";
+        setError(message);
+      }
     } finally {
+      setWaitingForServer(false);
       setIsLoading(false);
+      analyzeInFlight.current = false;
     }
   };
 
   const retryAnalysis = () => {
     if (lastUrl) {
-      handleAnalyze(lastUrl, true);
+      // Sunucuda önbelleğe alınmış sonuç varsa tekrar kredi düşmesin.
+      handleAnalyze(lastUrl, false);
     }
   };
+
+  const showCreditUpgrade = Boolean(
+    quota &&
+      !quota.unlimited &&
+      ((quota.credits_remaining ?? 0) <= 0 || creditsExhausted),
+  );
 
   return (
     <div className="flex min-h-screen flex-col overflow-x-hidden bg-bg-base text-text-primary selection:bg-accent-record/20 selection:text-accent-record">
@@ -151,6 +131,14 @@ export default function AnalyzePage() {
         </Link>
 
         <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+          {user && (
+            <Link
+              href="/dashboard"
+              className="hidden min-h-11 items-center rounded-lg border border-border-subtle px-3 text-sm font-semibold text-text-muted transition-colors hover:border-accent-record/30 hover:text-text-primary sm:flex"
+            >
+              Panel
+            </Link>
+          )}
           <Link
             href="/"
             className="hidden min-h-11 items-center px-3 text-sm font-medium text-text-muted transition-colors hover:text-text-primary sm:flex"
@@ -158,6 +146,7 @@ export default function AnalyzePage() {
             Tanıtım sayfası
           </Link>
           <ThemeToggle />
+          <AuthNav />
         </div>
       </header>
 
@@ -175,16 +164,53 @@ export default function AnalyzePage() {
               temaları ve bir sonraki videon için somut öneriyi hazırlasın.
             </p>
           </div>
-          <AnalyzeForm onSubmit={handleAnalyze} isLoading={isLoading} />
+
+          {showCreditUpgrade && (
+            <div className="mb-4 flex justify-center sm:hidden animate-fade-in">
+              <CreditUpgradeButton isGuest={quota?.is_guest} layout="inline" />
+            </div>
+          )}
+
+          <div className="mx-auto flex max-w-3xl items-start justify-center gap-3 sm:gap-4">
+            <div className="min-w-0 flex-1">
+              {!showCreditUpgrade && <QuotaBanner quota={quota} />}
+              <AnalyzeForm
+                onSubmit={handleAnalyze}
+                isLoading={isLoading}
+                initialUrl={prefilledUrl}
+                creditsBlocked={showCreditUpgrade}
+              />
+            </div>
+
+            {showCreditUpgrade && (
+              <aside className="hidden shrink-0 animate-fade-in sm:block">
+                <div className="sticky top-24 pt-8">
+                  <CreditUpgradeButton isGuest={quota?.is_guest} layout="side" />
+                </div>
+              </aside>
+            )}
+          </div>
         </section>
 
-        {isLoading && (
+        {creditsExhausted && !showCreditUpgrade && (
           <section className="min-w-0 animate-fade-in">
-            <LoadingState />
+            <CreditsExhaustedState />
           </section>
         )}
 
-        {error && (
+        {isLoading && (
+          <section className="min-w-0 animate-fade-in">
+            <LoadingState
+              message={
+                waitingForServer
+                  ? "Bağlantı kesildi; analiz sunucuda tamamlanıyor olabilir. Sonuç önbellekten alınmaya çalışılıyor..."
+                  : undefined
+              }
+            />
+          </section>
+        )}
+
+        {error && !creditsExhausted && (
           <section className="min-w-0 animate-fade-in">
             <ErrorState message={error} onRetry={retryAnalysis} />
           </section>
@@ -208,105 +234,8 @@ export default function AnalyzePage() {
         )}
 
         {!isLoading && !error && data && (
-          <section className="flex min-w-0 flex-col gap-8 animate-fade-in sm:gap-10">
-            <div className="relative flex min-w-0 flex-col items-start justify-between gap-5 overflow-hidden rounded-2xl border border-border-subtle bg-bg-surface/80 p-5 shadow-xl shadow-black/5 backdrop-blur-xl md:flex-row md:items-center sm:p-7">
-              <div className="pointer-events-none absolute -left-16 top-1/2 h-40 w-40 -translate-y-1/2 rounded-full bg-accent-record/10 blur-3xl" />
-              <div className="relative flex w-full min-w-0 items-start gap-4 md:w-auto">
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-accent-record/30 bg-accent-record/10 text-accent-record">
-                  <LandingIcon name="message" className="h-5 w-5" />
-                </span>
-                <div className="min-w-0">
-                  <span className="font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-accent-record">
-                    Analiz edilen video
-                  </span>
-                  <h2 className="mt-1 break-words font-display text-lg font-extrabold tracking-tight text-text-primary sm:text-xl">
-                    {data.video_title}
-                  </h2>
-                  <span className="mt-1 block break-words text-sm font-medium text-text-muted">
-                    {data.channel_title}
-                  </span>
-                </div>
-              </div>
-
-              <div className="relative grid w-full grid-cols-2 gap-2 font-sans text-sm md:w-auto sm:flex sm:items-stretch sm:gap-3">
-                <MetricBox
-                  label="Toplam yorum"
-                  value={data.comment_count_analyzed.toLocaleString("tr-TR")}
-                  icon="message"
-                />
-                <MetricBox
-                  label="Analiz tarihi"
-                  value={
-                    data.created_at
-                      ? new Date(data.created_at).toLocaleDateString("tr-TR")
-                      : "—"
-                  }
-                  icon="clock"
-                />
-                <PdfDownloadButton data={toPdfReportData(data)} />
-                {data.cached && (
-                  <div className="col-span-2 flex min-h-14 items-center justify-center gap-2 rounded-xl border border-sentiment-positive/25 bg-sentiment-positive/10 px-4 text-xs font-bold uppercase tracking-widest text-sentiment-positive sm:col-span-1">
-                    <span className="h-2 w-2 animate-pulse rounded-full bg-sentiment-positive" />
-                    Önbellek
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="relative min-w-0 overflow-hidden rounded-2xl border border-accent-record/25 bg-gradient-to-br from-accent-record/10 via-bg-surface to-bg-surface p-5 shadow-xl shadow-black/5 sm:p-7">
-              <div className="pointer-events-none absolute right-0 top-0 h-36 w-36 rounded-full bg-accent-record/10 blur-3xl" />
-              <div className="relative flex items-start gap-4">
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-accent-record/30 bg-accent-record/10 text-accent-record">
-                  <LandingIcon name="clipboard" className="h-5 w-5" />
-                </span>
-                <div className="min-w-0">
-                  <span className="font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-accent-record">
-                    Yönetici özeti
-                  </span>
-                  <h2 className="mt-1 font-display text-xl font-extrabold tracking-tight text-text-primary sm:text-2xl">
-                    İzleyicinin videoya verdiği genel tepki
-                  </h2>
-                  <p className="mt-4 max-w-5xl break-words text-sm leading-7 text-text-primary/90 sm:text-base sm:leading-8">
-                    {data.analysis.overall_summary}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <SentimentTabs
-              topics={data.analysis.topics}
-              positivePercent={data.analysis.sentiment_distribution.positive_percent}
-              negativePercent={data.analysis.sentiment_distribution.negative_percent}
-              neutralPercent={data.analysis.sentiment_distribution.neutral_percent}
-            />
-
-            {(() => {
-              const rec = normalizeRecommendation(data.analysis.top_recommendation);
-              return (
-                <div className="relative flex min-w-0 flex-col gap-5 overflow-hidden rounded-2xl border border-accent-record/35 bg-gradient-to-br from-accent-record/16 via-bg-surface to-bg-surface p-5 shadow-2xl shadow-accent-record/5 sm:p-7">
-                  <div className="pointer-events-none absolute right-0 top-0 h-48 w-48 rounded-full bg-accent-record/12 blur-[70px]" />
-                  <div className="relative flex items-center gap-4">
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-accent-record/40 bg-accent-record/15 text-accent-record shadow-lg shadow-accent-record/10">
-                      <LandingIcon name="target" className="h-6 w-6" />
-                    </div>
-                    <div>
-                      <span className="font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-accent-record">
-                        Öncelikli aksiyon
-                      </span>
-                      <h2 className="mt-1 font-display text-xl font-extrabold tracking-tight text-text-primary sm:text-2xl">
-                        Bir sonraki video için kritik tavsiye
-                      </h2>
-                    </div>
-                  </div>
-
-                  <div className="relative grid min-w-0 grid-cols-1 gap-3 md:grid-cols-3 sm:gap-4">
-                    {rec.insight && <RecommendationPart label="Neden?" text={rec.insight} />}
-                    {rec.action && <RecommendationPart label="Ne yapmalısın?" text={rec.action} accent />}
-                    {rec.expected_impact && <RecommendationPart label="Ne kazanırsın?" text={rec.expected_impact} positive />}
-                  </div>
-                </div>
-              );
-            })()}
+          <section className="min-w-0">
+            <AnalysisResultsView data={data} />
           </section>
         )}
       </main>
@@ -314,53 +243,6 @@ export default function AnalyzePage() {
       <footer className="mt-auto border-t border-border-subtle px-4 py-6 text-center font-sans text-sm text-text-muted sm:py-8">
         <p>© 2026 YorumAI — YouTube yorumlarını anlamlı içgörülere dönüştürür.</p>
       </footer>
-    </div>
-  );
-}
-
-function MetricBox({
-  label,
-  value,
-  icon,
-}: {
-  label: string;
-  value: string;
-  icon: React.ComponentProps<typeof LandingIcon>["name"];
-}) {
-  return (
-    <div className="flex min-h-14 min-w-0 items-center gap-3 rounded-xl border border-border-subtle bg-bg-base/50 px-3.5 py-2.5 sm:min-w-[9rem]">
-      <LandingIcon name={icon} className="h-4 w-4 shrink-0 text-text-muted" />
-      <div className="min-w-0">
-        <span className="block truncate text-[10px] font-bold uppercase tracking-wider text-text-muted">
-          {label}
-        </span>
-        <span className="mt-0.5 block truncate font-mono text-sm font-bold text-text-primary">
-          {value}
-        </span>
-      </div>
-    </div>
-  );
-}
-
-function RecommendationPart({
-  label,
-  text,
-  accent = false,
-  positive = false,
-}: {
-  label: string;
-  text: string;
-  accent?: boolean;
-  positive?: boolean;
-}) {
-  return (
-    <div className={`flex min-w-0 flex-col gap-2 rounded-xl border p-4 sm:p-5 ${accent ? "border-accent-record/35 bg-accent-record/12 shadow-lg shadow-accent-record/5" : "border-border-subtle bg-bg-base/45"}`}>
-      <span className={`font-mono text-[10px] font-bold uppercase tracking-[0.16em] ${accent ? "text-accent-record" : positive ? "text-sentiment-positive" : "text-text-muted"}`}>
-        {label}
-      </span>
-      <p className={`break-words text-sm leading-6 text-text-primary sm:text-base sm:leading-7 ${accent ? "font-display font-semibold" : "font-sans"}`}>
-        {text}
-      </p>
     </div>
   );
 }

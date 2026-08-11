@@ -1,5 +1,6 @@
 import Link from "next/link";
 import ThemeToggle from "@/components/ThemeToggle";
+import AuthNav from "@/components/auth/AuthNav";
 import LandingIcon from "./LandingIcon";
 
 export default function LandingHeader() {
@@ -34,11 +35,12 @@ export default function LandingHeader() {
           <ThemeToggle />
           <Link
             href="/analyze"
-            className="hidden min-h-11 items-center justify-center gap-2 rounded-lg bg-accent-record px-4 text-sm font-bold text-[#17130b] shadow-lg shadow-accent-record/15 transition-all hover:-translate-y-0.5 hover:bg-accent-record/90 sm:flex"
+            className="hidden min-h-11 items-center justify-center gap-2 rounded-lg bg-accent-record px-4 text-sm font-bold text-[#17130b] shadow-lg shadow-accent-record/15 transition-all hover:-translate-y-0.5 hover:bg-accent-record/90 xl:flex"
           >
             Ücretsiz Dene
             <LandingIcon name="arrow" className="h-4 w-4" />
           </Link>
+          <AuthNav />
         </div>
       </div>
     </header>

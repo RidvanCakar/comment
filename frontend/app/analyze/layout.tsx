@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 
 export const metadata: Metadata = {
   title: {
@@ -13,5 +14,9 @@ export default function AnalyzeLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  return children;
+  return (
+    <Suspense fallback={<main className="flex min-h-screen items-center justify-center bg-bg-base text-text-muted">Analiz aracı yükleniyor…</main>}>
+      {children}
+    </Suspense>
+  );
 }

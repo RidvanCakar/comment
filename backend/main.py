@@ -2,10 +2,12 @@ import os
 import sys
 import json
 from contextlib import asynccontextmanager
+from datetime import datetime
 from dotenv import load_dotenv
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 
 # Modüllerin doğrudan içe aktarılabilmesi için proje dizinini sys.path'e ekliyoruz
@@ -15,6 +17,16 @@ sys.path.append(BASE_DIR)
 from database import init_db, get_db, get_cached_analysis, save_analysis
 from youtube_service import extract_video_id, fetch_video_info, fetch_comments
 from gemini_service import analyze_comments
+from auth import admin_router, auth_router, users_router
+from config import settings
+from credits import (
+    assert_can_analyze,
+    consume_analysis,
+    get_optional_user,
+    get_or_create_guest,
+    promote_initial_admin,
+    quota_snapshot,
+)
 
 # .env dosyasından çevre değişkenlerini yüklüyoruz
 load_dotenv(os.path.join(BASE_DIR, ".env"))
@@ -34,8 +46,11 @@ MAX_COMMENTS = 1500
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Uygulama başlarken SQLite veritabanı tablolarını oluşturuyoruz
     init_db()
+    from database import SessionLocal
+
+    with SessionLocal() as db:
+        promote_initial_admin(db)
     yield
 
 app = FastAPI(
@@ -45,18 +60,98 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# Yerel geliştirme (localhost) için CORS izinleri
+# Tarayıcı istekleri yalnızca açıkça yapılandırılan frontend origin'lerinden kabul edilir.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=list(settings.frontend_origins),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+
+@app.middleware("http")
+async def browser_security(request: Request, call_next):
+    origin = request.headers.get("origin")
+    if (
+        request.method.upper() not in {"GET", "HEAD", "OPTIONS"}
+        and origin
+        and origin.rstrip("/") not in settings.frontend_origins
+    ):
+        return JSONResponse(
+            status_code=status.HTTP_403_FORBIDDEN,
+            content={"detail": "İstek kaynağına izin verilmiyor."},
+        )
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    if request.url.scheme == "https":
+        response.headers["Strict-Transport-Security"] = "max-age=31536000"
+    return response
+
+
 class AnalyzeRequest(BaseModel):
-    video_url: str
+    video_url: str = Field(min_length=1, max_length=2048)
     force_refresh: bool = False
+
+    @field_validator("video_url")
+    @classmethod
+    def clean_video_url(cls, value: str) -> str:
+        cleaned = value.strip()
+        if not cleaned:
+            raise ValueError("Video adresi boş olamaz.")
+        return cleaned
+
+
+def _json_datetime(value: datetime | None):
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value.isoformat()
+    return str(value)
+
+
+def _analysis_payload(
+    *,
+    video_id: str,
+    video_title: str,
+    channel_title: str,
+    comment_count_analyzed: int,
+    created_at: datetime | None,
+    analysis: dict,
+    cached: bool,
+    user,
+    guest,
+) -> dict:
+    return {
+        "video_id": video_id,
+        "video_title": video_title,
+        "channel_title": channel_title,
+        "comment_count_analyzed": comment_count_analyzed,
+        "created_at": _json_datetime(created_at),
+        "analysis": analysis,
+        "cached": cached,
+        "quota": quota_snapshot(user, guest),
+    }
+
+
+app.include_router(admin_router)
+app.include_router(auth_router)
+app.include_router(users_router)
+
+
+@app.get("/credits/quota")
+def credits_quota(
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+):
+    user = get_optional_user(request, db)
+    guest = None if user else get_or_create_guest(request, response, db)
+    return quota_snapshot(user, guest)
+
 
 @app.get("/")
 def health_check():
@@ -64,7 +159,12 @@ def health_check():
     return {"status": "ok", "app": "YouTube Yorum Analiz Platformu"}
 
 @app.post("/analyze")
-def analyze(request: AnalyzeRequest, db: Session = Depends(get_db)):
+def analyze(
+    request: Request,
+    response: Response,
+    body: AnalyzeRequest,
+    db: Session = Depends(get_db),
+):
     """
     Belirtilen YouTube videosunun yorumlarını analiz eder.
     Öncelikle veritabanı cache kontrolü yapar.
@@ -81,33 +181,64 @@ def analyze(request: AnalyzeRequest, db: Session = Depends(get_db)):
             detail="Sistem yapılandırma hatası: Gemini API anahtarı geçerli değil veya eksik."
         )
 
+    user = get_optional_user(request, db)
+    guest = None if user else get_or_create_guest(request, response, db)
+
     # 1. Video ID'sini URL'den çıkar
     try:
-        video_id = extract_video_id(request.video_url)
+        video_id = extract_video_id(body.video_url)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
 
+    cache_hit = False
     # 2. force_refresh False ise Önbelleğe (cache) bak
-    if not request.force_refresh:
+    if not body.force_refresh:
         cached = get_cached_analysis(db, video_id)
         if cached:
+            cache_hit = True
+            assert_can_analyze(
+                user,
+                guest,
+                from_cache=True,
+                force_refresh=False,
+            )
             try:
                 analysis_data = json.loads(cached.analysis_json)
-                return {
-                    "video_id": cached.video_id,
-                    "video_title": cached.video_title,
-                    "channel_title": cached.channel_title,
-                    "comment_count_analyzed": cached.comment_count_analyzed,
-                    "created_at": cached.created_at,
-                    "analysis": analysis_data,
-                    "cached": True
-                }
+                consume_analysis(
+                    db,
+                    user,
+                    guest,
+                    video_id=video_id,
+                    from_cache=True,
+                    force_refresh=False,
+                )
+                if user:
+                    db.refresh(user)
+                if guest:
+                    db.refresh(guest)
+                return _analysis_payload(
+                    video_id=cached.video_id,
+                    video_title=cached.video_title,
+                    channel_title=cached.channel_title,
+                    comment_count_analyzed=cached.comment_count_analyzed,
+                    created_at=cached.created_at,
+                    analysis=analysis_data,
+                    cached=True,
+                    user=user,
+                    guest=guest,
+                )
             except json.JSONDecodeError:
-                # Önbellekteki veri bozuksa es geçip yeniden analiz et
-                pass
+                cache_hit = False
+
+    assert_can_analyze(
+        user,
+        guest,
+        from_cache=False,
+        force_refresh=body.force_refresh,
+    )
 
     # 3. Önbellekte yoksa veya force_refresh True ise: YouTube'dan verileri çek
     # 3a. Video genel bilgilerini çek
@@ -194,15 +325,30 @@ def analyze(request: AnalyzeRequest, db: Session = Depends(get_db)):
         print(f"UYARI: Sonuç veritabanına önbelleğe alınamadı: {str(e)}")
         created_at = None
 
-    return {
-        "video_id": video_id,
-        "video_title": video_info["title"],
-        "channel_title": video_info["channel_title"],
-        "comment_count_analyzed": len(comments),
-        "created_at": created_at,
-        "analysis": analysis_result,
-        "cached": False
-    }
+    consume_analysis(
+        db,
+        user,
+        guest,
+        video_id=video_id,
+        from_cache=False,
+        force_refresh=body.force_refresh,
+    )
+    if user:
+        db.refresh(user)
+    if guest:
+        db.refresh(guest)
+
+    return _analysis_payload(
+        video_id=video_id,
+        video_title=video_info["title"],
+        channel_title=video_info["channel_title"],
+        comment_count_analyzed=len(comments),
+        created_at=created_at,
+        analysis=analysis_result,
+        cached=False,
+        user=user,
+        guest=guest,
+    )
 
 if __name__ == "__main__":
     import uvicorn

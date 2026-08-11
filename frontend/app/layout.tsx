@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Script from "next/script";
 import { Inter, Space_Grotesk, JetBrains_Mono } from "next/font/google";
+import AuthProvider from "@/components/auth/AuthProvider";
 import "./globals.css";
 
 const inter = Inter({
@@ -58,7 +59,7 @@ export default function RootLayout({
         <Script id="theme-init" strategy="beforeInteractive">
           {themeInitScript}
         </Script>
-        {children}
+        <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
   );

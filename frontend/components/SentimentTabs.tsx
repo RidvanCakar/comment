@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type MouseEvent } from "react";
 
 export type TopicSentiment = "positive" | "negative" | "neutral";
 
@@ -295,13 +295,22 @@ function TopicCategoryCard({
   weight: "strong" | "medium" | "soft";
   config: (typeof TAB_CONFIG)[TabKey];
 }) {
+  const [showExamples, setShowExamples] = useState(false);
   const visualClass =
     weight === "strong"
       ? config.cardStrong
       : weight === "medium"
         ? config.cardMedium
         : config.cardSoft;
-  const firstExample = topic.example_comments?.find((comment) => comment.trim());
+  const examples = (topic.example_comments || [])
+    .map((comment) => comment.trim())
+    .filter(Boolean)
+    .slice(0, 5);
+
+  const toggleExamples = (event: MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    setShowExamples((prev) => !prev);
+  };
 
   return (
     <article
@@ -340,12 +349,50 @@ function TopicCategoryCard({
         {topic.insight}
       </p>
 
-      {firstExample && (
-        <div className="mt-4 flex gap-2.5 border-t border-border-subtle pt-3">
-          <span className={`mt-0.5 shrink-0 text-lg leading-none ${config.text}`}>“</span>
-          <p className="line-clamp-2 text-xs italic leading-5 text-text-primary/75 sm:text-sm">
-            {firstExample}
-          </p>
+      {examples.length > 0 && (
+        <div className="mt-4 border-t border-border-subtle pt-3">
+          <button
+            type="button"
+            onClick={toggleExamples}
+            aria-expanded={showExamples}
+            className="flex min-h-11 w-full items-center justify-between gap-3 rounded-lg px-1 text-left transition-colors hover:bg-bg-base/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-record/40"
+          >
+            <span className="text-[11px] font-bold uppercase tracking-wider text-text-muted">
+              Örnek yorumlar ({examples.length})
+            </span>
+            <span className={`flex items-center gap-1.5 text-xs font-semibold ${config.text}`}>
+              {showExamples ? "Gizle" : "Göster"}
+              <span
+                className={`inline-block transition-transform duration-200 ${
+                  showExamples ? "rotate-180" : ""
+                }`}
+                aria-hidden
+              >
+                ▼
+              </span>
+            </span>
+          </button>
+
+          <div
+            className={`overflow-hidden transition-all duration-300 ease-in-out ${
+              showExamples ? "mt-3 max-h-[480px] opacity-100" : "max-h-0 opacity-0"
+            }`}
+          >
+            <ul className="flex flex-col gap-2.5">
+              {examples.map((comment, index) => (
+                <li key={index} className="flex min-w-0 gap-2.5">
+                  <span
+                    className={`mt-0.5 shrink-0 font-mono text-[10px] font-bold ${config.text} opacity-80`}
+                  >
+                    #{String(index + 1).padStart(2, "0")}
+                  </span>
+                  <p className="min-w-0 break-words text-xs leading-5 text-text-primary/80 sm:text-sm">
+                    {comment}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
       )}
     </article>

@@ -5,10 +5,17 @@ import React, { useState } from "react";
 interface AnalyzeFormProps {
   onSubmit: (videoUrl: string, forceRefresh: boolean) => void;
   isLoading: boolean;
+  initialUrl?: string;
+  creditsBlocked?: boolean;
 }
 
-export default function AnalyzeForm({ onSubmit, isLoading }: AnalyzeFormProps) {
-  const [url, setUrl] = useState("");
+export default function AnalyzeForm({
+  onSubmit,
+  isLoading,
+  initialUrl = "",
+  creditsBlocked = false,
+}: AnalyzeFormProps) {
+  const [url, setUrl] = useState(initialUrl);
   const [forceRefresh, setForceRefresh] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -30,7 +37,11 @@ export default function AnalyzeForm({ onSubmit, isLoading }: AnalyzeFormProps) {
 
       <form
         onSubmit={handleSubmit}
-        className="bg-bg-surface border border-border-subtle rounded-sm p-5 sm:p-8 shadow-2xl relative overflow-hidden transition-all duration-300 hover:border-accent-record/20"
+        className={`bg-bg-surface border rounded-sm p-5 sm:p-8 shadow-2xl relative overflow-hidden transition-all duration-300 ${
+          creditsBlocked
+            ? "border-accent-record/20"
+            : "border-border-subtle hover:border-accent-record/20"
+        }`}
       >
         <div className="absolute top-0 right-0 w-32 h-32 bg-accent-record/5 rounded-full blur-2xl pointer-events-none" />
 
@@ -62,6 +73,12 @@ export default function AnalyzeForm({ onSubmit, isLoading }: AnalyzeFormProps) {
             {isLoading ? "Analiz ediliyor..." : "Analizi Başlat"}
           </button>
         </div>
+
+        {creditsBlocked && (
+          <p className="mt-3 text-center text-xs leading-relaxed text-text-muted">
+            Yeni video analizi için kredi gerekir. Daha önce analiz ettiğin videolar önbellekten ücretsiz açılır.
+          </p>
+        )}
 
         <div className="flex items-center gap-3 mt-4 select-none">
           <label className="flex items-center gap-3 cursor-pointer min-h-11 py-2">
