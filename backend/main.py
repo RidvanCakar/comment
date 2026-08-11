@@ -15,8 +15,9 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(BASE_DIR)
 
 from database import init_db, get_db, get_cached_analysis, save_analysis
-from youtube_service import extract_video_id, fetch_video_info, fetch_comments
+from youtube_service import extract_video_id, fetch_video_info, fetch_comment_records
 from gemini_service import analyze_comments
+from comment_insights import enrich_analysis_with_comment_insights, topic_example_limit
 from auth import admin_router, auth_router, users_router
 from config import settings
 from credits import (
@@ -207,6 +208,30 @@ def analyze(
             )
             try:
                 analysis_data = json.loads(cached.analysis_json)
+                try:
+                    comment_records = fetch_comment_records(
+                        YOUTUBE_API_KEY,
+                        video_id,
+                        MAX_COMMENTS,
+                    )
+                    analysis_data = enrich_analysis_with_comment_insights(
+                        analysis_data,
+                        comment_records,
+                    )
+                    save_analysis(
+                        db=db,
+                        video_id=cached.video_id,
+                        video_title=cached.video_title,
+                        channel_title=cached.channel_title,
+                        analysis_json=json.dumps(analysis_data, ensure_ascii=False),
+                        comment_count_analyzed=cached.comment_count_analyzed,
+                        raw_comments_json=cached.raw_comments_json or "[]",
+                    )
+                except Exception as hydrate_error:
+                    print(
+                        "UYARI: Önbellek yorum meta verisi güncellenemedi: "
+                        f"{hydrate_error}"
+                    )
                 consume_analysis(
                     db,
                     user,
@@ -255,9 +280,9 @@ def analyze(
             detail=str(e)
         )
 
-    # 3b. Yorumları çek (max 300 yorum)
+    # 3b. Yorumları çek (max 1500 yorum)
     try:
-        comments = fetch_comments(YOUTUBE_API_KEY, video_id, MAX_COMMENTS)
+        comment_records = fetch_comment_records(YOUTUBE_API_KEY, video_id, MAX_COMMENTS)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -269,9 +294,12 @@ def analyze(
             detail=str(e)
         )
 
+    comment_texts = [item["text"] for item in comment_records]
+    example_limit = topic_example_limit(len(comment_records))
+
     # 4. Yorumları Gemini ile analiz et
     try:
-        analysis_result = analyze_comments(GEMINI_API_KEY, comments)
+        analysis_result = analyze_comments(GEMINI_API_KEY, comment_texts)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
@@ -283,31 +311,33 @@ def analyze(
             detail=f"Yapay Zeka Servis Hatası (Gemini): {str(e)}"
         )
 
-    # 4b. ID'leri gerçek yorum metinleriyle eşleştir ve veritabanına kaydedilecek yorumları filtrele
+    # 4b. ID'leri gerçek yorum metinleriyle eşleştir
     referenced_comment_indices = set()
     for topic in analysis_result.get("topics", []):
         example_ids = topic.get("example_comment_ids", [])
         example_comments = []
         if isinstance(example_ids, list):
-            example_ids = example_ids[:5]  # Kategori başına en fazla 5 örnek ile sınırla
+            example_ids = example_ids[:example_limit]
             for c_id in example_ids:
                 try:
                     idx = int(c_id)
-                    if 0 <= idx < len(comments):
+                    if 0 <= idx < len(comment_records):
                         referenced_comment_indices.add(idx)
-                        comment_text = comments[idx].strip()
-                        # Tekrarlı veya boş yorumları filtrele
+                        comment_text = comment_records[idx]["text"].strip()
                         if comment_text and comment_text not in example_comments:
                             example_comments.append(comment_text)
                 except (ValueError, TypeError):
                     continue
-        
+
         topic["example_comments"] = example_comments
-        # example_comment_ids'i ham haliyle dışarı sızdırmıyoruz
         topic.pop("example_comment_ids", None)
 
-    # Veritabanına yazmadan önce sadece Gemini'nin referans verdiği yorumları filtrele
-    filtered_comments = [comments[i] for i in sorted(referenced_comment_indices)]
+    analysis_result = enrich_analysis_with_comment_insights(
+        analysis_result,
+        comment_records,
+    )
+
+    filtered_comments = [comment_records[i]["text"] for i in sorted(referenced_comment_indices)]
 
     # 5. Sonuçları önbelleğe kaydet
     try:
@@ -317,7 +347,7 @@ def analyze(
             video_title=video_info["title"],
             channel_title=video_info["channel_title"],
             analysis_json=json.dumps(analysis_result, ensure_ascii=False),
-            comment_count_analyzed=len(comments),
+            comment_count_analyzed=len(comment_records),
             raw_comments_json=json.dumps(filtered_comments, ensure_ascii=False)
         )
         created_at = cached_record.created_at
@@ -342,7 +372,7 @@ def analyze(
         video_id=video_id,
         video_title=video_info["title"],
         channel_title=video_info["channel_title"],
-        comment_count_analyzed=len(comments),
+        comment_count_analyzed=len(comment_records),
         created_at=created_at,
         analysis=analysis_result,
         cached=False,

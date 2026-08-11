@@ -16,11 +16,32 @@ export interface PdfTopic {
   percent: number;
   sentiment: PdfSentiment | "mixed" | string;
   insight: string;
+  example_comments?: string[];
+}
+
+export interface PdfEngagedComment {
+  author: string;
+  text: string;
+  like_count: number;
+  reply_count: number;
+  engagement_score: number;
+  sentiment: string;
+  topic: string;
+}
+
+export interface PdfHighlightMoment {
+  timestamp_label: string;
+  timestamp_seconds: number;
+  total_engagement: number;
+  comment_count: number;
+  sample_comment: string;
+  sentiment: string;
 }
 
 export interface PdfReportData {
   videoTitle: string;
   channelTitle: string;
+  videoId?: string;
   analyzedCommentCount: number;
   analysisDate: string | null;
   summary: string;
@@ -30,6 +51,8 @@ export interface PdfReportData {
     neutral: number;
   };
   topics: PdfTopic[];
+  topEngagedComments?: PdfEngagedComment[];
+  highlightMoments?: PdfHighlightMoment[];
   recommendation: {
     insight: string;
     action: string;
@@ -271,6 +294,44 @@ const styles = StyleSheet.create({
     fontSize: 8.5,
     lineHeight: 1.55,
   },
+  insightCard: {
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 5,
+    padding: 10,
+    marginBottom: 7,
+    backgroundColor: colors.surface,
+  },
+  insightHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 5,
+  },
+  insightAuthor: {
+    fontSize: 9,
+    fontWeight: 700,
+  },
+  insightRank: {
+    color: colors.muted,
+    fontSize: 8,
+  },
+  insightMeta: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginTop: 6,
+  },
+  insightMetaTag: {
+    color: colors.muted,
+    fontSize: 7.5,
+    marginRight: 10,
+  },
+  momentTime: {
+    fontSize: 10,
+    fontWeight: 700,
+    color: colors.amber,
+    marginBottom: 4,
+  },
   footer: {
     position: "absolute",
     left: 42,
@@ -331,6 +392,15 @@ export default function ReportDocument({ data }: { data: PdfReportData }) {
   const analysisDate = data.analysisDate
     ? new Date(data.analysisDate).toLocaleDateString("tr-TR")
     : new Date().toLocaleDateString("tr-TR");
+
+  let sectionCounter = 3;
+  const engagedSectionNumber = data.topEngagedComments?.length
+    ? String(sectionCounter++).padStart(2, "0")
+    : null;
+  const momentsSectionNumber = data.highlightMoments?.length
+    ? String(sectionCounter++).padStart(2, "0")
+    : null;
+  const recommendationSectionNumber = String(sectionCounter).padStart(2, "0");
 
   return (
     <Document
@@ -396,8 +466,37 @@ export default function ReportDocument({ data }: { data: PdfReportData }) {
           )}
         </View>
 
+        {engagedSectionNumber && (
+          <View style={styles.section}>
+            <SectionHeader number={engagedSectionNumber} title="En Beğenilen Yorumlar" />
+            {data.topEngagedComments!.map((comment, index) => (
+              <EngagedCommentCard
+                key={`${index}-${comment.text.slice(0, 20)}`}
+                comment={comment}
+                rank={index + 1}
+              />
+            ))}
+          </View>
+        )}
+
+        {momentsSectionNumber && (
+          <View style={styles.section}>
+            <SectionHeader number={momentsSectionNumber} title="Öne Çıkan Anlar" />
+            {data.highlightMoments!.map((moment) => (
+              <HighlightMomentCard
+                key={`${moment.timestamp_seconds}-${moment.timestamp_label}`}
+                moment={moment}
+                videoId={data.videoId}
+              />
+            ))}
+          </View>
+        )}
+
         <View style={styles.section} wrap={false}>
-          <SectionHeader number="03" title="Bir Sonraki Video İçin Kritik Tavsiye" />
+          <SectionHeader
+            number={recommendationSectionNumber}
+            title="Bir Sonraki Video İçin Kritik Tavsiye"
+          />
           <View style={styles.recommendation}>
             <Text style={styles.recommendationTitle}>Öncelikli Aksiyon Planı</Text>
             <RecommendationPart
@@ -582,4 +681,82 @@ function RecommendationPart({
 
 function formatPercent(value: number) {
   return Number.isInteger(value) ? String(value) : value.toFixed(1);
+}
+
+function sentimentLabelPdf(sentiment: string) {
+  if (sentiment === "positive") return "Pozitif";
+  if (sentiment === "negative") return "Olumsuz";
+  return "Nötr";
+}
+
+function formatHandlePdf(author: string) {
+  const cleaned = author.trim();
+  if (!cleaned || cleaned.toLowerCase() === "anonim") return "Anonim";
+  return cleaned.startsWith("@") ? cleaned : `@${cleaned}`;
+}
+
+function EngagedCommentCard({
+  comment,
+  rank,
+}: {
+  comment: PdfEngagedComment;
+  rank: number;
+}) {
+  return (
+    <View style={styles.insightCard} wrap={false}>
+      <View style={styles.insightHeader}>
+        <Text style={styles.insightAuthor}>{formatHandlePdf(comment.author)}</Text>
+        <Text style={styles.insightRank}>#{rank}</Text>
+      </View>
+      <Text style={styles.topicDescription}>{comment.text}</Text>
+      <View style={styles.insightMeta}>
+        <Text style={styles.insightMetaTag}>
+          {comment.like_count.toLocaleString("tr-TR")} beğeni
+        </Text>
+        <Text style={styles.insightMetaTag}>
+          {comment.reply_count.toLocaleString("tr-TR")} yanıt
+        </Text>
+        <Text style={styles.insightMetaTag}>
+          {comment.engagement_score.toLocaleString("tr-TR")} etkileşim
+        </Text>
+        <Text style={styles.insightMetaTag}>
+          {sentimentLabelPdf(comment.sentiment)}
+        </Text>
+        <Text style={styles.insightMetaTag}>{comment.topic}</Text>
+      </View>
+    </View>
+  );
+}
+
+function HighlightMomentCard({
+  moment,
+  videoId,
+}: {
+  moment: PdfHighlightMoment;
+  videoId?: string;
+}) {
+  const watchLabel = videoId
+    ? `youtube.com/watch?v=${videoId}&t=${moment.timestamp_seconds}s`
+    : null;
+
+  return (
+    <View style={styles.insightCard} wrap={false}>
+      <Text style={styles.momentTime}>{moment.timestamp_label}</Text>
+      <Text style={styles.topicDescription}>{moment.sample_comment}</Text>
+      <View style={styles.insightMeta}>
+        <Text style={styles.insightMetaTag}>
+          {moment.total_engagement.toLocaleString("tr-TR")} etkileşim
+        </Text>
+        <Text style={styles.insightMetaTag}>
+          {moment.comment_count.toLocaleString("tr-TR")} yorum
+        </Text>
+        <Text style={styles.insightMetaTag}>
+          {sentimentLabelPdf(moment.sentiment)}
+        </Text>
+        {watchLabel ? (
+          <Text style={styles.insightMetaTag}>{watchLabel}</Text>
+        ) : null}
+      </View>
+    </View>
+  );
 }

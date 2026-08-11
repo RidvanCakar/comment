@@ -64,48 +64,69 @@ def fetch_video_info(api_key: str, video_id: str) -> dict:
             raise RuntimeError("Erişim engellendi. Geçersiz YouTube API anahtarı.")
         raise RuntimeError(f"Video bilgisi alınırken beklenmedik hata: {str(e)}")
 
-def fetch_comments(api_key: str, video_id: str, max_comments: int) -> list[str]:
-    """
-    Belirtilen videonun en alakalı (order=relevance) yorumlarını sayfalama ile çeker.
-    """
+def fetch_comment_records(
+    api_key: str,
+    video_id: str,
+    max_comments: int,
+) -> list[dict]:
+    """Videonun en alakalı yorumlarını beğeni ve yanıt sayılarıyla birlikte çeker."""
     if not api_key:
         raise ValueError("YouTube API anahtarı eksik.")
-        
+
     try:
-        youtube = build('youtube', 'v3', developerKey=api_key)
-        comments = []
+        youtube = build("youtube", "v3", developerKey=api_key)
+        comments: list[dict] = []
         next_page_token = None
-        
+
         while len(comments) < max_comments:
             results_to_fetch = min(100, max_comments - len(comments))
-            
+
             request = youtube.commentThreads().list(
-                part="snippet",
+                part="snippet,replies",
                 videoId=video_id,
                 textFormat="plainText",
                 order="relevance",
                 maxResults=results_to_fetch,
-                pageToken=next_page_token
+                pageToken=next_page_token,
             )
             response = request.execute()
-            
-            items = response.get('items', [])
+
+            items = response.get("items", [])
             for item in items:
-                # Top level comment metnini al
-                text = item['snippet']['topLevelComment']['snippet']['textDisplay']
-                if text:
-                    comments.append(text)
-                    
-            next_page_token = response.get('nextPageToken')
-            # Daha fazla sayfa yoksa veya hedefe ulaşıldıysa döngüden çık
+                top_comment = item.get("snippet", {}).get("topLevelComment", {})
+                snippet = top_comment.get("snippet", {})
+                text = snippet.get("textDisplay", "").strip()
+                if not text:
+                    continue
+                author = (
+                    snippet.get("authorDisplayName")
+                    or snippet.get("authorChannelId", {}).get("value")
+                    or "Anonim"
+                )
+                author = str(author).strip() or "Anonim"
+                comments.append(
+                    {
+                        "text": text,
+                        "like_count": int(snippet.get("likeCount", 0) or 0),
+                        "reply_count": int(item["snippet"].get("totalReplyCount", 0) or 0),
+                        "author": author,
+                    }
+                )
+
+            next_page_token = response.get("nextPageToken")
             if not next_page_token or len(items) == 0:
                 break
-                
+
         return comments
     except HttpError as e:
-        error_details = e.content.decode('utf-8') if hasattr(e, 'content') else ""
+        error_details = e.content.decode("utf-8") if hasattr(e, "content") else ""
         if "disabled" in error_details or "commentsDisabled" in error_details:
             raise ValueError("Bu videoda yorumlar kapatılmıştır.")
         raise RuntimeError(f"Yorumlar çekilirken YouTube API hatası oluştu: {e.reason}")
     except Exception as e:
         raise RuntimeError(f"Yorum çekme işlemi başarısız oldu: {str(e)}")
+
+
+def fetch_comments(api_key: str, video_id: str, max_comments: int) -> list[str]:
+    """Geriye dönük uyumluluk için yalnızca metin listesi döndürür."""
+    return [item["text"] for item in fetch_comment_records(api_key, video_id, max_comments)]

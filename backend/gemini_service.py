@@ -2,6 +2,9 @@ import json
 import google.generativeai as genai
 from typing import Dict, Any, List
 
+from comment_insights import topic_example_range
+
+
 def analyze_comments(api_key: str, comments: List[str]) -> Dict[str, Any]:
     """
     Tüm yorumları tek bir Gemini isteğinde analiz ettirip, JSON formatında yapılandırılmış sonuç döndürür.
@@ -32,6 +35,7 @@ def analyze_comments(api_key: str, comments: List[str]) -> Dict[str, Any]:
     # Yorumları ID'leri ile birlikte tek bir metin bloğu haline getiriyoruz
     comments_block = "\n---\n".join([f"[ID: {i}] {c}" for i, c in enumerate(comments)])
     comment_count = len(comments)
+    example_min, example_max = topic_example_range(comment_count)
 
     # Hacme göre ZORUNLU kategori sınırları (toplam; üç sentiment'a doğal dağılım)
     if comment_count >= 800:
@@ -77,7 +81,7 @@ ANALİZ YÖNERGELERİ:
    - "sentiment": yalnızca şu üç değerden biri — "positive" (olumlu), "negative" (olumsuz) veya "neutral" (nötr). "mixed" KULLANMA.
    Bir kategori çoğunlukla olumluysa positive, çoğunlukla olumsuzsa negative, belirgin bir yönü yoksa veya hem övgü hem eleştiri dengeliyse neutral yaz.
 7. Her konu başlığı için içerik üreticisine aksiyon alabileceği net bir tavsiye (insight) yaz.
-8. Her konu başlığı için, o konuyla en çok ilişkili olan/temsil eden en az 3, en fazla 5 adet temsili örnek yorumun ID'sini (sayı olarak) 'example_comment_ids' listesine ekle.
+8. Her konu başlığı için, o konuyla en çok ilişkili olan/temsil eden en az {example_min}, en fazla {example_max} adet temsili örnek yorumun ID'sini (sayı olarak) 'example_comment_ids' listesine ekle.
 9. "overall_summary" (özet rapor) şu kurallara uymalı:
    - 3-4 cümlelik, gerçek verilere dayanan bir YÖNETİCİ ÖZETİ olsun.
    - Hangi temaların öne çıktığını yüzdeleriyle belirt (örnek: "Yorumların %40'ı editleme kalitesini övüyor").

@@ -1,5 +1,7 @@
 import type { ComponentProps } from "react";
 import LandingIcon from "@/components/landing/LandingIcon";
+import HighlightMoments from "@/components/analyze/HighlightMoments";
+import TopEngagedComments from "@/components/analyze/TopEngagedComments";
 import PdfDownloadButton from "@/components/pdf/PdfDownloadButton";
 import SentimentTabs from "@/components/SentimentTabs";
 import type { AnalyzeResult } from "@/lib/analyze-request";
@@ -80,6 +82,17 @@ export default function AnalysisResultsView({ data }: { data: AnalyzeResult }) {
         negativePercent={data.analysis.sentiment_distribution.negative_percent}
         neutralPercent={data.analysis.sentiment_distribution.neutral_percent}
       />
+
+      {!!data.analysis.top_engaged_comments?.length && (
+        <TopEngagedComments comments={data.analysis.top_engaged_comments} />
+      )}
+
+      {!!data.analysis.highlight_moments?.length && (
+        <HighlightMoments
+          moments={data.analysis.highlight_moments}
+          videoId={data.video_id}
+        />
+      )}
 
       <div className="relative flex min-w-0 flex-col gap-5 overflow-hidden rounded-2xl border border-accent-record/35 bg-gradient-to-br from-accent-record/16 via-bg-surface to-bg-surface p-5 shadow-2xl shadow-accent-record/5 sm:p-7">
         <div className="pointer-events-none absolute right-0 top-0 h-48 w-48 rounded-full bg-accent-record/12 blur-[70px]" />

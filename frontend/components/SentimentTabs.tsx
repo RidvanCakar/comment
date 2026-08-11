@@ -1,15 +1,23 @@
 "use client";
 
 import { useMemo, useState, type MouseEvent } from "react";
+import { formatHandle } from "@/components/analyze/InsightSection";
 
 export type TopicSentiment = "positive" | "negative" | "neutral";
+
+export type ExampleComment =
+  | string
+  | {
+      text: string;
+      author?: string;
+    };
 
 export interface SentimentTopic {
   topic: string;
   percent: number;
   sentiment: TopicSentiment | "mixed" | string;
   insight: string;
-  example_comments?: string[];
+  example_comments?: ExampleComment[];
 }
 
 interface SentimentTabsProps {
@@ -303,9 +311,15 @@ function TopicCategoryCard({
         ? config.cardMedium
         : config.cardSoft;
   const examples = (topic.example_comments || [])
-    .map((comment) => comment.trim())
-    .filter(Boolean)
-    .slice(0, 5);
+    .map((comment) => {
+      if (typeof comment === "string") {
+        const text = comment.trim();
+        return text ? { text, author: undefined as string | undefined } : null;
+      }
+      const text = comment.text.trim();
+      return text ? { text, author: comment.author } : null;
+    })
+    .filter(Boolean) as { text: string; author?: string }[];
 
   const toggleExamples = (event: MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
@@ -375,7 +389,7 @@ function TopicCategoryCard({
 
           <div
             className={`overflow-hidden transition-all duration-300 ease-in-out ${
-              showExamples ? "mt-3 max-h-[480px] opacity-100" : "max-h-0 opacity-0"
+              showExamples ? "mt-3 max-h-[960px] overflow-y-auto opacity-100" : "max-h-0 opacity-0"
             }`}
           >
             <ul className="flex flex-col gap-2.5">
@@ -386,9 +400,16 @@ function TopicCategoryCard({
                   >
                     #{String(index + 1).padStart(2, "0")}
                   </span>
-                  <p className="min-w-0 break-words text-xs leading-5 text-text-primary/80 sm:text-sm">
-                    {comment}
-                  </p>
+                  <div className="min-w-0">
+                    {comment.author && comment.author.toLowerCase() !== "anonim" && (
+                      <p className="mb-1 text-[11px] font-semibold text-text-primary">
+                        {formatHandle(comment.author)}
+                      </p>
+                    )}
+                    <p className="min-w-0 break-words text-xs leading-5 text-text-primary/80 sm:text-sm">
+                      {comment.text}
+                    </p>
+                  </div>
                 </li>
               ))}
             </ul>

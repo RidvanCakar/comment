@@ -25,7 +25,7 @@ export interface AnalyzeResult {
       percent: number;
       sentiment: "positive" | "negative" | "neutral" | "mixed";
       insight: string;
-      example_comments?: string[];
+      example_comments?: (string | { text: string; author?: string })[];
     }[];
     overall_summary: string;
     top_recommendation:
@@ -35,6 +35,24 @@ export interface AnalyzeResult {
           action: string;
           expected_impact: string;
         };
+    top_engaged_comments?: {
+      text: string;
+      author?: string;
+      like_count: number;
+      reply_count: number;
+      engagement_score: number;
+      sentiment?: string;
+      topic?: string;
+    }[];
+    highlight_moments?: {
+      timestamp_label: string;
+      timestamp_seconds: number;
+      total_engagement: number;
+      comment_count: number;
+      sample_comment: string;
+      top_comment_engagement: number;
+      sentiment?: string;
+    }[];
   };
 }
 
