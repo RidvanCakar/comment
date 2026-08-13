@@ -10,23 +10,23 @@ const steps: {
   {
     number: "01",
     icon: "link",
-    title: "Video linkini yapıştır",
+    title: "Video veya Kanal Linki Gir",
     description:
-      "Analiz etmek istediğin herkese açık YouTube videosunun bağlantısını gir.",
+      "Tek bir YouTube video linki veya kanal kullanıcı adını (@handle) yapıştır.",
   },
   {
     number: "02",
     icon: "sparkles",
-    title: "YorumAI analiz etsin",
+    title: "Gemini 2.5 Flash Analiz Etsin",
     description:
-      "Yapay zekâ yorumları ayıklar; duygu, konu ve tekrar eden talepleri bulur.",
+      "Yapay zekâ binlerce yorumu ayıklar; duygu dağılımı, temalar ve çoklu video sentezi yapar.",
   },
   {
     number: "03",
     icon: "clipboard",
-    title: "Net bir yol haritası al",
+    title: "Stratejik Raporunu Al",
     description:
-      "Kategorize edilmiş raporu ve bir sonraki videon için veriye dayalı öneriyi gör.",
+      "Kanal Sağlık Skoru, duygu trendi, kronik sorunlar ve bir sonraki videon için net aksiyonu gör.",
   },
 ];
 

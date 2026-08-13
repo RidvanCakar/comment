@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import asyncio
 from contextlib import asynccontextmanager
 from datetime import datetime
 from dotenv import load_dotenv
@@ -14,19 +15,35 @@ from sqlalchemy.orm import Session
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(BASE_DIR)
 
-from database import init_db, get_db, get_cached_analysis, save_analysis
-from youtube_service import extract_video_id, fetch_video_info, fetch_comment_records
-from gemini_service import analyze_comments
+from database import (
+    init_db,
+    get_db,
+    get_cached_analysis,
+    save_analysis,
+    save_channel_analysis,
+    get_latest_channel_analysis,
+)
+from youtube_service import (
+    extract_video_id,
+    fetch_video_info,
+    fetch_comment_records,
+    get_channel_latest_videos,
+    resolve_channel_id,
+)
+from gemini_service import analyze_comments, analyze_channel_insights
 from comment_insights import enrich_analysis_with_comment_insights, topic_example_limit
 from auth import admin_router, auth_router, users_router
 from config import settings
 from credits import (
     assert_can_analyze,
+    assert_can_analyze_channel,
+    charge_user_for_channel_analysis,
     consume_analysis,
     get_optional_user,
     get_or_create_guest,
     promote_initial_admin,
     quota_snapshot,
+    CHANNEL_ANALYSIS_CREDIT_COST,
 )
 
 # .env dosyasından çevre değişkenlerini yüklüyoruz
@@ -104,6 +121,21 @@ class AnalyzeRequest(BaseModel):
         if not cleaned:
             raise ValueError("Video adresi boş olamaz.")
         return cleaned
+
+
+class ChannelAnalyzeRequest(BaseModel):
+    channel_url: str = Field(min_length=1, max_length=2048)
+    video_limit: int = Field(default=5, ge=1, le=10)
+    force_refresh: bool = False
+
+    @field_validator("channel_url")
+    @classmethod
+    def clean_channel_url(cls, value: str) -> str:
+        cleaned = value.strip()
+        if not cleaned:
+            raise ValueError("Kanal linki veya kullanıcı adı boş olamaz.")
+        return cleaned
+
 
 
 def _json_datetime(value: datetime | None):
@@ -380,7 +412,196 @@ def analyze(
         guest=guest,
     )
 
+
+@app.post("/analyze/channel")
+async def analyze_channel(
+    request: Request,
+    response: Response,
+    body: ChannelAnalyzeRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Belirtilen YouTube kanalının son videolarını toplu analiz eder ve kanal geneli sentez raporu üretir.
+    Maliyet: 3 Analiz Kredisi.
+    """
+    if not YOUTUBE_API_KEY or YOUTUBE_API_KEY.startswith("YOUR_"):
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Sistem yapılandırma hatası: YouTube API anahtarı geçerli değil veya eksik."
+        )
+    if not GEMINI_API_KEY or GEMINI_API_KEY.startswith("YOUR_"):
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Sistem yapılandırma hatası: Gemini API anahtarı geçerli değil veya eksik."
+        )
+
+    user = get_optional_user(request, db)
+    guest = None if user else get_or_create_guest(request, response, db)
+
+    # 1. Kredi ve yetki kontrolü
+    assert_can_analyze_channel(user, guest)
+
+    # 2. Kanalın son videolarını çek
+    try:
+        latest_videos = get_channel_latest_videos(
+            channel_url_or_id=body.channel_url,
+            limit=body.video_limit,
+            api_key=YOUTUBE_API_KEY,
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        )
+    except RuntimeError as e:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=str(e),
+        )
+
+    if not latest_videos:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Kanalda analiz edilecek video bulunamadı veya kanal gizli.",
+        )
+
+    # 3. Her videonun tekil analizini paralel olarak yap veya önbellekten al
+    def _analyze_single_video_sync(v: dict) -> dict:
+        vid_id = v["video_id"]
+        cached_record = None if body.force_refresh else get_cached_analysis(db, vid_id)
+
+        if cached_record:
+            try:
+                v_analysis = json.loads(cached_record.analysis_json)
+                return {
+                    "video_id": cached_record.video_id,
+                    "title": cached_record.video_title,
+                    "channel_title": cached_record.channel_title,
+                    "published_at": v.get("published_at", ""),
+                    "thumbnail_url": v.get("thumbnail_url", ""),
+                    "comment_count_analyzed": cached_record.comment_count_analyzed,
+                    "analysis": v_analysis,
+                    "cached": True,
+                }
+            except Exception:
+                pass
+
+        # Önbellekte yoksa yorumları çekip analiz et
+        try:
+            c_records = fetch_comment_records(YOUTUBE_API_KEY, vid_id, MAX_COMMENTS)
+        except Exception:
+            c_records = []
+
+        c_texts = [item["text"] for item in c_records]
+        example_limit = topic_example_limit(len(c_records))
+
+        try:
+            v_analysis = analyze_comments(GEMINI_API_KEY, c_texts)
+            # Yorum ID eşleştirmeleri
+            for topic in v_analysis.get("topics", []):
+                example_ids = topic.get("example_comment_ids", [])
+                example_comments = []
+                if isinstance(example_ids, list):
+                    for c_id in example_ids[:example_limit]:
+                        try:
+                            idx = int(c_id)
+                            if 0 <= idx < len(c_records):
+                                text_val = c_records[idx]["text"].strip()
+                                if text_val and text_val not in example_comments:
+                                    example_comments.append(text_val)
+                        except (ValueError, TypeError):
+                            continue
+                topic["example_comments"] = example_comments
+                topic.pop("example_comment_ids", None)
+
+            v_analysis = enrich_analysis_with_comment_insights(v_analysis, c_records)
+        except Exception as err:
+            v_analysis = {
+                "sentiment_distribution": {
+                    "positive_percent": 0,
+                    "negative_percent": 0,
+                    "neutral_percent": 100,
+                },
+                "topics": [],
+                "overall_summary": f"Video analizi yapılamadı: {str(err)}",
+                "top_recommendation": {
+                    "insight": "Yorum verisi yetersiz",
+                    "action": "Video yorumlarını kontrol edin.",
+                    "expected_impact": "",
+                },
+            }
+
+        try:
+            save_analysis(
+                db=db,
+                video_id=vid_id,
+                video_title=v["title"],
+                channel_title=v.get("channel_title", ""),
+                analysis_json=json.dumps(v_analysis, ensure_ascii=False),
+                comment_count_analyzed=len(c_records),
+                raw_comments_json="[]",
+            )
+        except Exception as save_err:
+            print(f"UYARI: Video önbelleğe kaydedilemedi ({vid_id}): {save_err}")
+
+        return {
+            "video_id": vid_id,
+            "title": v["title"],
+            "channel_title": v.get("channel_title", ""),
+            "published_at": v.get("published_at", ""),
+            "thumbnail_url": v.get("thumbnail_url", ""),
+            "comment_count_analyzed": len(c_records),
+            "analysis": v_analysis,
+            "cached": False,
+        }
+
+    tasks = [asyncio.to_thread(_analyze_single_video_sync, v) for v in latest_videos]
+    video_reports = list(await asyncio.gather(*tasks))
+
+    # 4. 5 videonun özetlerini Gemini ile kanal sentezine dönüştür
+    try:
+        channel_report = await analyze_channel_insights(video_reports, api_key=GEMINI_API_KEY)
+    except Exception as err:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Kanal sentez analizi sırasında yapay zeka hatası oluştu: {str(err)}",
+        )
+
+    # 5. Kredi düşümü
+    charge_user_for_channel_analysis(db, user, guest)
+    if user:
+        db.refresh(user)
+    if guest:
+        db.refresh(guest)
+
+    # 6. Kanal sentezini veritabanına kaydet
+    channel_id = latest_videos[0].get("channel_id") or "UNKNOWN"
+    channel_title = channel_report.get("channel_title") or latest_videos[0].get("channel_title") or "YouTube Kanalı"
+    analyzed_ids = [v["video_id"] for v in latest_videos]
+
+    saved_channel = save_channel_analysis(
+        db=db,
+        channel_id=channel_id,
+        channel_title=channel_title,
+        video_count=len(latest_videos),
+        analyzed_video_ids=analyzed_ids,
+        channel_report=channel_report,
+        user_id=user.id if user else None,
+    )
+
+    return {
+        "channel_id": channel_id,
+        "channel_title": channel_title,
+        "video_count": len(latest_videos),
+        "created_at": _json_datetime(saved_channel.created_at),
+        "channel_report": channel_report,
+        "analyzed_videos": video_reports,
+        "quota": quota_snapshot(user, guest),
+    }
+
+
 if __name__ == "__main__":
     import uvicorn
     # Doğrudan python main.py olarak çalıştırıldığında uvicorn başlasın
     uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
+

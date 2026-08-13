@@ -14,9 +14,9 @@ export default function Hero() {
       <div className="relative mx-auto grid w-full max-w-7xl items-center gap-14 lg:grid-cols-[1.02fr_.98fr] lg:gap-16">
         <Reveal>
           <div className="mx-auto max-w-2xl text-center lg:mx-0 lg:text-left">
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-accent-record/25 bg-accent-record/10 px-3 py-1.5 text-xs font-bold text-accent-record">
+            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-accent-record/25 bg-accent-record/10 px-3.5 py-1.5 text-xs font-bold text-accent-record">
               <LandingIcon name="sparkles" className="h-4 w-4" />
-              Yapay zekâ destekli içerik içgörüleri
+              <span>YENİ: Kanal Geneli Çoklu Video Sentezi</span>
             </div>
 
             <h1 className="font-display text-[2.55rem] font-extrabold leading-[1.06] tracking-[-0.045em] text-text-primary sm:text-6xl lg:text-[4.25rem]">
@@ -26,9 +26,7 @@ export default function Hero() {
             </h1>
 
             <p className="mx-auto mt-6 max-w-xl text-base leading-7 text-text-muted sm:text-lg sm:leading-8 lg:mx-0">
-              YorumAI; içerik üreticileri ve ekipleri için binlerce yorumu
-              analiz eder, gerçek izleyici temalarını ortaya çıkarır ve bir
-              sonraki videon için somut aksiyon sunar.
+              YorumAI; tekil video veya kanal geneli 5 videonun binlerce izleyici yorumunu analiz eder, Kanal Sağlık Skorunu (0-100), duygu trendini ve kronik şikâyetleri ortaya çıkarır.
             </p>
 
             <div className="mt-8 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center lg:justify-start">
@@ -36,20 +34,19 @@ export default function Hero() {
                 href="/analyze"
                 className="flex min-h-12 items-center justify-center gap-2 rounded-lg bg-accent-record px-6 py-3.5 font-display text-sm font-bold text-[#17130b] shadow-xl shadow-accent-record/20 transition-all hover:-translate-y-0.5 hover:bg-accent-record/90"
               >
-                Ücretsiz Analiz Et
+                Video Analiz Et
                 <LandingIcon name="arrow" className="h-5 w-5" />
               </Link>
-              <a
-                href="#rapor"
-                className="flex min-h-12 items-center justify-center gap-2 rounded-lg border border-border-subtle bg-bg-surface/70 px-6 py-3.5 text-sm font-semibold text-text-primary backdrop-blur-md transition-colors hover:border-accent-record/35"
+              <Link
+                href="/kanal-analizi"
+                className="flex min-h-12 items-center justify-center gap-2 rounded-lg border border-accent-record/40 bg-bg-surface/70 px-6 py-3.5 text-sm font-bold text-text-primary backdrop-blur-md transition-all hover:border-accent-record hover:bg-accent-record/10"
               >
-                <LandingIcon name="eye" className="h-5 w-5 text-text-muted" />
-                Örnek raporu gör
-              </a>
+                <span>⚡ Kanal Analizi Yap</span>
+              </Link>
             </div>
 
             <div className="mt-7 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-text-muted lg:justify-start">
-              {["Kredi kartı gerekmez", "Kurulum yok", "1500 yoruma kadar"].map((item) => (
+              {["Kayıtta 5 Ücretsiz Kredi", "Kanal Sağlık Skoru", "Kronik Sorun Tespiti"].map((item) => (
                 <span key={item} className="flex items-center gap-1.5">
                   <LandingIcon name="check" className="h-4 w-4 text-sentiment-positive" />
                   {item}

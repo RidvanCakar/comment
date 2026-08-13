@@ -10,6 +10,7 @@ from database import AuthSession, GuestDevice, User, UserAnalysisCharge
 
 
 GUEST_COOKIE_NAME = "comment_guest_device"
+CHANNEL_ANALYSIS_CREDIT_COST = 3
 
 
 class CreditsExhausted(HTTPException):
@@ -22,6 +23,7 @@ class CreditsExhausted(HTTPException):
                 "whatsapp": settings.support_whatsapp,
             },
         )
+
 
 
 def utcnow() -> datetime:
@@ -67,19 +69,46 @@ def _set_guest_cookie(response: Response, token: str) -> None:
     )
 
 
+def get_client_ip(request: Request) -> str:
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "127.0.0.1"
+
+
 def get_or_create_guest(request: Request, response: Response, db: Session) -> GuestDevice:
+    ip = get_client_ip(request)
     token = request.cookies.get(GUEST_COOKIE_NAME)
+
+    # 1. Önce IP adresine göre mevcut misafir kaydını kontrol et
+    if ip:
+        guest_by_ip = db.query(GuestDevice).filter(GuestDevice.ip_address == ip).first()
+        if guest_by_ip:
+            if token and not guest_by_ip.token_hash:
+                guest_by_ip.token_hash = _token_hash(token)
+                db.commit()
+            return guest_by_ip
+
+    # 2. Kurabiye (Cookie) token'ına göre kontrol et
     if token:
-        guest = (
+        guest_by_cookie = (
             db.query(GuestDevice)
             .filter(GuestDevice.token_hash == _token_hash(token))
             .first()
         )
-        if guest:
-            return guest
+        if guest_by_cookie:
+            if ip and not guest_by_cookie.ip_address:
+                guest_by_cookie.ip_address = ip
+                db.commit()
+            return guest_by_cookie
 
+    # 3. Bulunamadıysa IP ve token bilgisi ile yeni misafir cihazı kaydet
     raw_token = secrets.token_urlsafe(32)
-    guest = GuestDevice(token_hash=_token_hash(raw_token), analyses_used=0)
+    guest = GuestDevice(
+        token_hash=_token_hash(raw_token),
+        ip_address=ip,
+        analyses_used=0,
+    )
     db.add(guest)
     db.commit()
     db.refresh(guest)
@@ -114,6 +143,11 @@ def assert_can_analyze(
         return
 
     if user:
+        if not getattr(user, "is_verified", False):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Lütfen önce e-posta adresinizi doğrulayın.",
+            )
         # Önbellekten tekrar açmak ücretsiz (yeniden analiz hariç).
         if from_cache and not force_refresh:
             return
@@ -166,6 +200,82 @@ def consume_analysis(
     if not db.query(UserAnalysisCharge).filter_by(user_id=user.id, video_id=video_id).first():
         db.add(UserAnalysisCharge(user_id=user.id, video_id=video_id))
     db.commit()
+
+
+def assert_can_analyze_channel(
+    user: User | None,
+    guest: GuestDevice | None,
+) -> None:
+    """Kanal analizi için 3 kredi gereksinimini ve e-posta doğrulamasını kontrol eder."""
+    if _is_unlimited(user):
+        return
+
+    if user:
+        if not getattr(user, "is_verified", False):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Lütfen önce e-posta adresinizi doğrulayın.",
+            )
+        if user.analysis_credits < CHANNEL_ANALYSIS_CREDIT_COST:
+            raise HTTPException(
+                status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                detail={
+                    "message": f"Kanal analizi için en az {CHANNEL_ANALYSIS_CREDIT_COST} krediniz olması gerekmektedir.",
+                    "code": "INSUFFICIENT_CREDITS",
+                    "required_credits": CHANNEL_ANALYSIS_CREDIT_COST,
+                    "available_credits": user.analysis_credits,
+                    "whatsapp": settings.support_whatsapp,
+                },
+            )
+        return
+
+    if guest:
+        remaining = max(0, settings.guest_analysis_limit - guest.analyses_used)
+        if remaining < CHANNEL_ANALYSIS_CREDIT_COST:
+            raise HTTPException(
+                status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                detail={
+                    "message": f"Kanal analizi için en az {CHANNEL_ANALYSIS_CREDIT_COST} krediniz olması gerekmektedir. Ek kredi için lütfen kayıt olun veya iletişime geçin.",
+                    "code": "INSUFFICIENT_CREDITS",
+                    "required_credits": CHANNEL_ANALYSIS_CREDIT_COST,
+                    "available_credits": remaining,
+                    "whatsapp": settings.support_whatsapp,
+                },
+            )
+        return
+
+
+def charge_user_for_channel_analysis(
+    db: Session,
+    user: User | None,
+    guest: GuestDevice | None,
+) -> None:
+    """Kanal analizi tamamlandığında kullanıcı veya misafir bakiyesinden 3 kredi düşer."""
+    if _is_unlimited(user):
+        return
+
+    if user:
+        if user.analysis_credits < CHANNEL_ANALYSIS_CREDIT_COST:
+            raise HTTPException(
+                status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                detail={
+                    "message": f"Kanal analizi için en az {CHANNEL_ANALYSIS_CREDIT_COST} krediniz olması gerekmektedir.",
+                    "code": "INSUFFICIENT_CREDITS",
+                    "required_credits": CHANNEL_ANALYSIS_CREDIT_COST,
+                    "available_credits": user.analysis_credits,
+                    "whatsapp": settings.support_whatsapp,
+                },
+            )
+        user.analysis_credits = max(0, user.analysis_credits - CHANNEL_ANALYSIS_CREDIT_COST)
+        db.commit()
+        return
+
+    if guest:
+        guest.analyses_used += CHANNEL_ANALYSIS_CREDIT_COST
+        guest.last_used_at = utcnow()
+        db.commit()
+        return
+
 
 
 def quota_snapshot(user: User | None, guest: GuestDevice | None) -> dict:

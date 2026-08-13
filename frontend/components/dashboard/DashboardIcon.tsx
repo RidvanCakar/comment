@@ -23,6 +23,14 @@ export default function DashboardIcon({
           <path d="m10 10 5 3-5 3v-6Z" fill="currentColor" />
         </svg>
       );
+    case "channel":
+      return (
+        <svg {...props}>
+          <path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6Z" stroke="currentColor" strokeWidth="1.8" />
+          <path d="M9 17V7l7 5-7 5Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+          <path d="M19 8h2M19 12h2M19 16h2M3 8h2M3 12h2M3 16h2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        </svg>
+      );
     case "folder":
       return (
         <svg {...props}>

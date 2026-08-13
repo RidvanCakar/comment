@@ -31,7 +31,12 @@ export function toPdfReportData(data: AnalyzeResult): PdfReportData {
       negative: data.analysis.sentiment_distribution.negative_percent,
       neutral: data.analysis.sentiment_distribution.neutral_percent,
     },
-    topics: data.analysis.topics,
+    topics: data.analysis.topics?.map((topic) => ({
+      ...topic,
+      example_comments: topic.example_comments?.map((c) =>
+        typeof c === "string" ? c : c.text,
+      ),
+    })),
     topEngagedComments: data.analysis.top_engaged_comments?.map((comment) => ({
       author: comment.author || "Anonim",
       text: comment.text,

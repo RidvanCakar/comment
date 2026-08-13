@@ -1,3 +1,5 @@
+import type { ChannelReport, AnalyzedVideoReportItem } from "@/lib/api";
+
 export interface AnalysisHistoryEntry {
   id: string;
   videoId: string;
@@ -12,11 +14,29 @@ export interface AnalysisHistoryEntry {
   analyzedAt: string;
 }
 
+export interface ChannelAnalysisHistoryEntry {
+  id: string;
+  channelId: string;
+  channelTitle: string;
+  videoCount: number;
+  healthScore: number;
+  sentimentTrend: "IMPROVING" | "DECLINING" | "STABLE";
+  summary: string;
+  analyzedAt: string;
+  report: ChannelReport;
+  analyzedVideos: AnalyzedVideoReportItem[];
+}
+
 const STORAGE_PREFIX = "yorumai_analyses_";
+const CHANNEL_STORAGE_PREFIX = "yorumai_channel_analyses_";
 const MAX_ENTRIES = 50;
 
 function storageKey(userId: string | number) {
   return `${STORAGE_PREFIX}${userId}`;
+}
+
+function channelStorageKey(userId: string | number) {
+  return `${CHANNEL_STORAGE_PREFIX}${userId}`;
 }
 
 export function youtubeThumbnail(videoId: string) {
@@ -49,7 +69,33 @@ export function saveAnalysisHistory(
   return next;
 }
 
-export function countThisMonth(entries: AnalysisHistoryEntry[]) {
+export function readChannelAnalysisHistory(userId: string | number): ChannelAnalysisHistoryEntry[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(channelStorageKey(userId));
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as ChannelAnalysisHistoryEntry[];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveChannelAnalysisHistory(
+  userId: string | number,
+  entry: Omit<ChannelAnalysisHistoryEntry, "id">,
+): ChannelAnalysisHistoryEntry[] {
+  if (typeof window === "undefined") return [];
+  const id = `${entry.channelId}-${entry.analyzedAt}`;
+  const nextEntry: ChannelAnalysisHistoryEntry = { ...entry, id };
+  const existing = readChannelAnalysisHistory(userId).filter((item) => item.channelId !== entry.channelId);
+  const next = [nextEntry, ...existing].slice(0, MAX_ENTRIES);
+  localStorage.setItem(channelStorageKey(userId), JSON.stringify(next));
+  window.dispatchEvent(new CustomEvent("yorumai:channel-analysis-history"));
+  return next;
+}
+
+export function countThisMonth(entries: (AnalysisHistoryEntry | ChannelAnalysisHistoryEntry)[]) {
   const now = new Date();
   return entries.filter((entry) => {
     const date = new Date(entry.analyzedAt);
@@ -64,6 +110,13 @@ export function findAnalysisEntry(
   return readAnalysisHistory(userId).find((item) => item.videoId === videoId);
 }
 
+export function findChannelAnalysisEntry(
+  userId: string | number,
+  channelId: string,
+): ChannelAnalysisHistoryEntry | undefined {
+  return readChannelAnalysisHistory(userId).find((item) => item.channelId === channelId);
+}
+
 export function formatAnalysisDate(value: string) {
   return new Date(value).toLocaleDateString("tr-TR", {
     day: "numeric",
@@ -71,3 +124,4 @@ export function formatAnalysisDate(value: string) {
     year: "numeric",
   });
 }
+

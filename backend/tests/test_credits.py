@@ -35,6 +35,26 @@ def test_guest_can_reopen_cached_analysis_after_quota_used(db_factory):
     assert_can_analyze(None, guest, from_cache=True, force_refresh=False) is None
 
 
+def test_guest_ip_tracking_blocks_subsequent_requests(db_factory):
+    from credits import get_or_create_guest
+    from fastapi import Request, Response
+
+    req = Request({"type": "http", "client": ("192.168.1.100", 12345), "headers": []})
+    resp = Response()
+
+    with db_factory() as db:
+        guest1 = get_or_create_guest(req, resp, db)
+        guest1.analyses_used = 1
+        db.commit()
+
+        req2 = Request({"type": "http", "client": ("192.168.1.100", 54321), "headers": []})
+        guest2 = get_or_create_guest(req2, resp, db)
+        assert guest2.id == guest1.id
+        assert guest2.analyses_used == 1
+        with pytest.raises(CreditsExhausted):
+            assert_can_analyze(None, guest2, from_cache=False, force_refresh=False)
+
+
 def test_user_without_credits_is_blocked_for_new_analysis(db_factory):
     with db_factory() as db:
         user = User(
@@ -43,6 +63,7 @@ def test_user_without_credits_is_blocked_for_new_analysis(db_factory):
             password_hash=auth.password_hasher.hash(VALID_PASSWORD),
             provider="email",
             analysis_credits=0,
+            is_verified=True,
         )
         db.add(user)
         db.commit()
@@ -59,6 +80,7 @@ def test_user_without_credits_can_view_cache(db_factory):
             password_hash=auth.password_hasher.hash(VALID_PASSWORD),
             provider="email",
             analysis_credits=0,
+            is_verified=True,
         )
         db.add(user)
         db.commit()
@@ -76,6 +98,7 @@ def test_user_charged_once_per_video(db_factory):
             password_hash=auth.password_hasher.hash(VALID_PASSWORD),
             provider="email",
             analysis_credits=3,
+            is_verified=True,
         )
         db.add(user)
         db.commit()

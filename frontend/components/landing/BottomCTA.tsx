@@ -23,13 +23,21 @@ export default function BottomCTA() {
               Bir YouTube bağlantısı yeterli. YorumAI, dağınık geri bildirimi
               içerik stratejine yön veren net bir rapora dönüştürsün.
             </p>
-            <Link
-              href="/analyze"
-              className="mt-8 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-accent-record px-7 py-3.5 font-display text-sm font-bold text-[#17130b] shadow-xl shadow-accent-record/20 transition-all hover:-translate-y-0.5 hover:bg-accent-record/90 sm:w-auto"
-            >
-              Hemen Ücretsiz Dene
-              <LandingIcon name="arrow" className="h-5 w-5" />
-            </Link>
+            <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
+              <Link
+                href="/analyze"
+                className="inline-flex min-h-12 w-full sm:w-auto items-center justify-center gap-2 rounded-lg bg-accent-record px-7 py-3.5 font-display text-sm font-bold text-[#17130b] shadow-xl shadow-accent-record/20 transition-all hover:-translate-y-0.5 hover:bg-accent-record/90"
+              >
+                <span>Video Analiz Et</span>
+                <LandingIcon name="arrow" className="h-5 w-5" />
+              </Link>
+              <Link
+                href="/kanal-analizi"
+                className="inline-flex min-h-12 w-full sm:w-auto items-center justify-center gap-2 rounded-lg border border-accent-record/35 bg-bg-base/70 px-7 py-3.5 font-display text-sm font-bold text-text-primary transition-all hover:border-accent-record hover:bg-accent-record/10"
+              >
+                <span>⚡ Kanal Analizine Başla</span>
+              </Link>
+            </div>
           </div>
         </div>
       </Reveal>

@@ -130,3 +130,168 @@ def fetch_comment_records(
 def fetch_comments(api_key: str, video_id: str, max_comments: int) -> list[str]:
     """Geriye dönük uyumluluk için yalnızca metin listesi döndürür."""
     return [item["text"] for item in fetch_comment_records(api_key, video_id, max_comments)]
+
+
+def resolve_channel_id(youtube, channel_url_or_id: str) -> tuple[str, str, str]:
+    """
+    Kullanıcının girdiği kanal ID'si (UC...), handle (@kanaladi), video linki veya kanal URL'sinden
+    (channel_id, channel_title, uploads_playlist_id) üçlüsünü çözer.
+    """
+    raw = channel_url_or_id.strip()
+    if not raw:
+        raise ValueError("Kanal bağlantısı veya kullanıcı adı boş olamaz.")
+
+    # @https:// veya @http:// gibi baştaki hatalı @ karakterlerini temizle
+    if raw.startswith("@http://") or raw.startswith("@https://"):
+        raw = raw[1:]
+
+    # 1. Video URL'si girilmişse (watch?v= veya youtu.be veya /shorts/), videonun kanalını çek
+    video_id_match = re.search(
+        r'(?:v=|\/shorts\/|\/embed\/|\/v\/|youtu\.be\/|\/watch\?v%3D|[?&]v=)([a-zA-Z0-9_-]{11})',
+        raw,
+    )
+    if video_id_match:
+        vid = video_id_match.group(1)
+        try:
+            v_resp = youtube.videos().list(part="snippet", id=vid).execute()
+            v_items = v_resp.get("items", [])
+            if v_items:
+                found_channel_id = v_items[0]["snippet"]["channelId"]
+                c_resp = youtube.channels().list(part="snippet,contentDetails", id=found_channel_id).execute()
+                c_items = c_resp.get("items", [])
+                if c_items:
+                    snippet = c_items[0]["snippet"]
+                    uploads = c_items[0]["contentDetails"]["relatedPlaylists"]["uploads"]
+                    return c_items[0]["id"], snippet.get("title", ""), uploads
+        except Exception:
+            pass
+
+    # 2. Doğrudan veya URL içindeki UC... (24 karakterli) Channel ID tespiti
+    channel_id_match = re.search(r'(UC[a-zA-Z0-9_-]{22})', raw)
+    if channel_id_match:
+        target_id = channel_id_match.group(1)
+        resp = youtube.channels().list(part="snippet,contentDetails", id=target_id).execute()
+        items = resp.get("items", [])
+        if items:
+            snippet = items[0]["snippet"]
+            uploads = items[0]["contentDetails"]["relatedPlaylists"]["uploads"]
+            return items[0]["id"], snippet.get("title", ""), uploads
+
+    # 3. Handle (@ornek / youtube.com/@ornek) tespiti
+    handle_match = re.search(r'(?:youtube\.com\/)?@([a-zA-Z0-9_.-]+)', raw)
+    if handle_match:
+        handle = handle_match.group(1)
+        if handle.lower() not in ("http", "https", "www", "watch"):
+            for try_handle in (handle, f"@{handle}"):
+                try:
+                    resp = youtube.channels().list(part="snippet,contentDetails", forHandle=try_handle).execute()
+                    items = resp.get("items", [])
+                    if items:
+                        snippet = items[0]["snippet"]
+                        uploads = items[0]["contentDetails"]["relatedPlaylists"]["uploads"]
+                        return items[0]["id"], snippet.get("title", ""), uploads
+                except Exception:
+                    continue
+
+    # 4. Custom /user/username tespiti
+    user_match = re.search(r'youtube\.com\/user\/([a-zA-Z0-9_-]+)', raw)
+    if user_match:
+        username = user_match.group(1)
+        try:
+            resp = youtube.channels().list(part="snippet,contentDetails", forUsername=username).execute()
+            items = resp.get("items", [])
+            if items:
+                snippet = items[0]["snippet"]
+                uploads = items[0]["contentDetails"]["relatedPlaylists"]["uploads"]
+                return items[0]["id"], snippet.get("title", ""), uploads
+        except Exception:
+            pass
+
+    # 5. Fallback Arama: Handle, custom path veya kanal adı ile arama yapma
+    clean_query = raw
+    clean_query = re.sub(r'https?:\/\/(www\.)?youtube\.com\/(c\/|@)?', '', clean_query)
+    clean_query = clean_query.split('/')[0].strip('@')
+
+    if clean_query:
+        search_resp = youtube.search().list(part="snippet", type="channel", q=clean_query, maxResults=1).execute()
+        search_items = search_resp.get("items", [])
+        if search_items:
+            found_channel_id = search_items[0]["snippet"]["channelId"]
+            resp = youtube.channels().list(part="snippet,contentDetails", id=found_channel_id).execute()
+            items = resp.get("items", [])
+            if items:
+                snippet = items[0]["snippet"]
+                uploads = items[0]["contentDetails"]["relatedPlaylists"]["uploads"]
+                return items[0]["id"], snippet.get("title", ""), uploads
+
+    raise ValueError(f"'{channel_url_or_id}' için YouTube kanalı bulunamadı.")
+
+
+
+def get_channel_latest_videos(
+    channel_url_or_id: str,
+    limit: int = 5,
+    api_key: str | None = None
+) -> list[dict]:
+    """
+    Kanalın en son yayınlanan `limit` kadar (varsayılan 5) videosunun
+    video_id, title, published_at, thumbnail_url bilgilerini döndürür.
+    """
+    import os
+    resolved_api_key = api_key or os.getenv("YOUTUBE_API_KEY")
+    if not resolved_api_key:
+        raise ValueError("YouTube API anahtarı eksik.")
+
+    try:
+        youtube = build("youtube", "v3", developerKey=resolved_api_key)
+        channel_id, channel_title, uploads_playlist_id = resolve_channel_id(youtube, channel_url_or_id)
+
+        # Uploads playlist üzerinden son videoları çek (1 kota birimi maliyeti)
+        playlist_request = youtube.playlistItems().list(
+            part="snippet",
+            playlistId=uploads_playlist_id,
+            maxResults=min(50, max(limit, 10))
+        )
+        playlist_response = playlist_request.execute()
+        items = playlist_response.get("items", [])
+
+        videos = []
+        for item in items:
+            snippet = item.get("snippet", {})
+            vid_id = snippet.get("resourceId", {}).get("videoId")
+            title = snippet.get("title", "")
+
+            # Silinmiş veya gizli videoları atla
+            if not vid_id or title in ("Private video", "Deleted video"):
+                continue
+
+            thumbnails = snippet.get("thumbnails", {})
+            thumb_url = (
+                thumbnails.get("maxres", {}).get("url")
+                or thumbnails.get("high", {}).get("url")
+                or thumbnails.get("medium", {}).get("url")
+                or thumbnails.get("default", {}).get("url")
+                or f"https://i.ytimg.com/vi/{vid_id}/hqdefault.jpg"
+            )
+
+            videos.append({
+                "video_id": vid_id,
+                "title": title,
+                "published_at": snippet.get("publishedAt", ""),
+                "thumbnail_url": thumb_url,
+                "channel_id": channel_id,
+                "channel_title": channel_title
+            })
+
+            if len(videos) >= limit:
+                break
+
+        return videos
+    except HttpError as e:
+        status_code = e.resp.status if hasattr(e, "resp") else 500
+        raise RuntimeError(f"YouTube API Hatası (Kod: {status_code}): {e.reason}")
+    except ValueError:
+        raise
+    except Exception as e:
+        raise RuntimeError(f"Kanal videoları alınırken hata oluştu: {str(e)}")
+

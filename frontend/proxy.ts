@@ -10,6 +10,7 @@ export const config = {
   matcher: [
     "/dashboard/:path*",
     "/analizlerim/:path*",
+    "/kanal-analizi/:path*",
     "/ayarlar/:path*",
     "/destek/:path*",
     "/sss/:path*",

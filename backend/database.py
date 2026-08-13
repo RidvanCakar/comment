@@ -9,6 +9,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Integer,
+    JSON,
     String,
     Text,
     create_engine,
@@ -69,7 +70,10 @@ class User(Base):
     last_login_at = Column(DateTime, nullable=True)
     failed_login_attempts = Column(Integer, nullable=False, default=0)
     locked_until = Column(DateTime, nullable=True)
-    analysis_credits = Column(Integer, nullable=False, default=3)
+    analysis_credits = Column(Integer, nullable=False, default=5)
+    is_verified = Column(Boolean, nullable=False, default=False, index=True)
+    verify_token = Column(String(255), nullable=True, unique=True, index=True)
+    verify_token_expires_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(
         DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
@@ -77,6 +81,9 @@ class User(Base):
 
     sessions = relationship(
         "AuthSession", back_populates="user", cascade="all, delete-orphan"
+    )
+    channel_analyses = relationship(
+        "ChannelAnalysis", back_populates="user", cascade="all, delete-orphan"
     )
 
 
@@ -102,6 +109,7 @@ class GuestDevice(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     token_hash = Column(String(64), nullable=False, unique=True, index=True)
+    ip_address = Column(String(64), nullable=True, index=True)
     analyses_used = Column(Integer, nullable=False, default=0)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     last_used_at = Column(DateTime, nullable=True)
@@ -114,6 +122,24 @@ class UserAnalysisCharge(Base):
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
     video_id = Column(String(32), primary_key=True)
     charged_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+
+class ChannelAnalysis(Base):
+    """Kanal geneli çoklu video analiz sentez sonuçları."""
+    __tablename__ = "channel_analyses"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    channel_id = Column(String(64), nullable=False, index=True)
+    channel_title = Column(String(255), nullable=False)
+    video_count = Column(Integer, nullable=False, default=0)
+    analyzed_video_ids = Column(JSON, nullable=False)
+    channel_report = Column(JSON, nullable=False)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+    user = relationship("User", back_populates="channel_analyses")
 
 
 class SchemaMigration(Base):
@@ -159,11 +185,47 @@ def _migration_4(bind: Engine) -> None:
     UserAnalysisCharge.__table__.create(bind=bind, checkfirst=True)
 
 
+def _migration_5(bind: Engine) -> None:
+    """Kullanıcı e-posta doğrulama alanlarını ekler."""
+    columns = {column["name"] for column in inspect(bind).get_columns("users")}
+    with bind.begin() as connection:
+        if "is_verified" not in columns:
+            connection.execute(
+                text("ALTER TABLE users ADD COLUMN is_verified BOOLEAN NOT NULL DEFAULT 0")
+            )
+        if "verify_token" not in columns:
+            connection.execute(
+                text("ALTER TABLE users ADD COLUMN verify_token VARCHAR(255)")
+            )
+        if "verify_token_expires_at" not in columns:
+            connection.execute(
+                text("ALTER TABLE users ADD COLUMN verify_token_expires_at DATETIME")
+            )
+
+
+def _migration_6(bind: Engine) -> None:
+    """Misafir cihaz takibine IP adresi kolonunu ekler."""
+    columns = {column["name"] for column in inspect(bind).get_columns("guest_devices")}
+    if "ip_address" not in columns:
+        with bind.begin() as connection:
+            connection.execute(
+                text("ALTER TABLE guest_devices ADD COLUMN ip_address VARCHAR(64)")
+            )
+
+
+def _migration_7(bind: Engine) -> None:
+    """Kanal geneli toplu analiz (ChannelAnalysis) tablosunu ekler."""
+    ChannelAnalysis.__table__.create(bind=bind, checkfirst=True)
+
+
 MIGRATIONS = (
     (1, "video_analysis_cache_column", _migration_1),
     (2, "users_and_auth_sessions", _migration_2),
     (3, "analysis_credits_and_guest_devices", _migration_3),
     (4, "user_analysis_charges", _migration_4),
+    (5, "user_email_verification", _migration_5),
+    (6, "guest_device_ip_tracking", _migration_6),
+    (7, "channel_analysis_table", _migration_7),
 )
 
 
@@ -237,3 +299,39 @@ def save_analysis(
     
     # Kaydedilen güncel veriyi geri dön
     return db.query(VideoAnalysis).filter(VideoAnalysis.video_id == video_id).first()
+
+
+def save_channel_analysis(
+    db: Session,
+    channel_id: str,
+    channel_title: str,
+    video_count: int,
+    analyzed_video_ids: list,
+    channel_report: dict,
+    user_id: Optional[int] = None,
+) -> ChannelAnalysis:
+    """Kanal geneli analiz sonucunu veritabanına kaydeder."""
+    record = ChannelAnalysis(
+        user_id=user_id,
+        channel_id=channel_id,
+        channel_title=channel_title,
+        video_count=video_count,
+        analyzed_video_ids=analyzed_video_ids,
+        channel_report=channel_report,
+        created_at=datetime.utcnow(),
+    )
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+    return record
+
+
+def get_latest_channel_analysis(db: Session, channel_id: str) -> Optional[ChannelAnalysis]:
+    """Belirtilen kanal için en son kaydedilmiş analizi döndürür."""
+    return (
+        db.query(ChannelAnalysis)
+        .filter(ChannelAnalysis.channel_id == channel_id)
+        .order_by(ChannelAnalysis.created_at.desc())
+        .first()
+    )
+

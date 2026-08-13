@@ -42,9 +42,11 @@ class Settings:
     rate_limit_requests: int = _int_env("AUTH_RATE_LIMIT_REQUESTS", 10)
     rate_limit_window_seconds: int = _int_env("AUTH_RATE_LIMIT_WINDOW_SECONDS", 60)
     initial_admin_email: str = os.getenv("INITIAL_ADMIN_EMAIL", "").strip().lower()
-    default_user_credits: int = _int_env("DEFAULT_USER_CREDITS", 3, minimum=0)
+    default_user_credits: int = _int_env("DEFAULT_USER_CREDITS", 5, minimum=0)
     guest_analysis_limit: int = _int_env("GUEST_ANALYSIS_LIMIT", 1, minimum=0)
     support_whatsapp: str = os.getenv("SUPPORT_WHATSAPP", "905418015310")
+    resend_api_key: str = os.getenv("RESEND_API_KEY", "")
+    resend_from_email: str = os.getenv("RESEND_FROM_EMAIL", "onboarding@resend.dev")
 
 
 settings = Settings()

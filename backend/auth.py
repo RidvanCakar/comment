@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from config import settings
 from database import AuthSession, User, get_db
+from email_service import send_verification_email
 
 
 auth_router = APIRouter(prefix="/auth", tags=["Kimlik Doğrulama"])
@@ -82,6 +83,14 @@ class LoginRequest(BaseModel):
     password: str = Field(min_length=1, max_length=128)
 
 
+class VerifyEmailRequest(BaseModel):
+    token: str = Field(min_length=1, max_length=255)
+
+
+class ResendVerificationRequest(BaseModel):
+    email: EmailStr | None = None
+
+
 class ProfileUpdateRequest(BaseModel):
     full_name: str | None = Field(default=None, min_length=2, max_length=120)
     avatar_url: str | None = Field(default=None, max_length=2048)
@@ -127,7 +136,9 @@ class UserResponse(BaseModel):
     role: str
     is_active: bool
     analysis_credits: int
-    email_verified: bool | None
+    is_verified: bool = False
+    isVerified: bool = False
+    email_verified: bool | None = False
     last_login_at: datetime | None
     created_at: datetime
 
@@ -144,6 +155,7 @@ class UserListResponse(BaseModel):
 
 
 def user_response(user: User) -> UserResponse:
+    is_ver = bool(getattr(user, "is_verified", False))
     return UserResponse(
         id=user.id,
         avatar_url=user.avatar_url,
@@ -154,7 +166,9 @@ def user_response(user: User) -> UserResponse:
         role=user.role,
         is_active=user.is_active,
         analysis_credits=user.analysis_credits,
-        email_verified=None,
+        is_verified=is_ver,
+        isVerified=is_ver,
+        email_verified=is_ver,
         last_login_at=user.last_login_at,
         created_at=user.created_at,
     )
@@ -313,12 +327,16 @@ def register(
     if db.query(User.id).filter(User.email == email).first():
         raise HTTPException(status_code=400, detail="Kayıt işlemi tamamlanamadı.")
 
+    verify_token = secrets.token_urlsafe(32)
     user = User(
         full_name=payload.full_name,
         email=email,
         password_hash=password_hasher.hash(payload.password),
         provider="email",
         analysis_credits=settings.default_user_credits,
+        is_verified=False,
+        verify_token=verify_token,
+        verify_token_expires_at=utcnow() + timedelta(hours=24),
     )
     _promote_initial_admin(user)
     db.add(user)
@@ -331,8 +349,90 @@ def register(
         db.rollback()
         raise HTTPException(status_code=400, detail="Kayıt işlemi tamamlanamadı.")
     db.refresh(user)
+
+    # Resend üzerinden e-posta doğrulama maili gönder (varsa)
+    send_verification_email(user.email, user.full_name, verify_token)
+
     _delete_session_cookie(response)
     return auth_result(user, token)
+
+
+@auth_router.get("/verify-email")
+@auth_router.post("/verify-email")
+def verify_email(
+    db: Annotated[Session, Depends(get_db)],
+    token: str | None = Query(default=None),
+    payload: VerifyEmailRequest | None = None,
+):
+    raw_token = (token or (payload.token if payload else "") or "").strip()
+    if not raw_token:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Doğrulama token'ı bulunamadı.",
+        )
+
+    user = db.query(User).filter(User.verify_token == raw_token).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Doğrulama bağlantısı geçersiz veya süresi dolmuş.",
+        )
+
+    if user.verify_token_expires_at and user.verify_token_expires_at < utcnow():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Doğrulama bağlantısının süresi dolmuş. Lütfen yeni bir doğrulama e-postası isteyin.",
+        )
+
+    user.is_verified = True
+    user.verify_token = None
+    user.verify_token_expires_at = None
+    db.commit()
+    db.refresh(user)
+
+    return {
+        "message": "E-posta adresiniz başarıyla doğrulandı.",
+        "user": user_response(user),
+    }
+
+
+@auth_router.post("/resend-verification")
+def resend_verification(
+    request: Request,
+    db: Annotated[Session, Depends(get_db)],
+    _limited: Annotated[None, Depends(sensitive_route)],
+    payload: ResendVerificationRequest | None = None,
+):
+    from credits import get_optional_user
+
+    user = get_optional_user(request, db)
+    if not user and payload and payload.email:
+        user = db.query(User).filter(User.email == normalize_email(str(payload.email))).first()
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Kullanıcı bulunamadı.",
+        )
+
+    if user.is_verified:
+        return {"message": "E-posta adresiniz zaten doğrulanmış."}
+
+    verify_token = secrets.token_urlsafe(32)
+    user.verify_token = verify_token
+    user.verify_token_expires_at = utcnow() + timedelta(hours=24)
+    db.commit()
+
+    sent = send_verification_email(user.email, user.full_name, verify_token)
+    if not sent:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Doğrulama e-postası gönderilemedi. Lütfen daha sonra tekrar deneyin.",
+        )
+
+    return {
+        "message": "Doğrulama e-postası tekrar gönderildi. Lütfen gelen kutunuzu kontrol edin.",
+    }
 
 
 @auth_router.post("/login", response_model=AuthResult)
