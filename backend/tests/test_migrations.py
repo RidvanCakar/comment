@@ -50,7 +50,13 @@ def test_migration_preserves_existing_video_analysis(tmp_path):
             text("SELECT COUNT(*) FROM schema_migrations")
         ).scalar_one()
     assert row == ("Başlık", 42)
-    assert versions == 7
+    assert versions == 9
     tables = set(inspect(test_engine).get_table_names())
     assert "channel_analyses" in tables
+    assert "feedbacks" in tables
+    user_columns = {
+        column["name"] for column in inspect(test_engine).get_columns("users")
+    }
+    assert "reset_token" in user_columns
+    assert "reset_token_expires_at" in user_columns
 

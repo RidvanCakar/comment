@@ -12,9 +12,11 @@ export const config = {
     "/analizlerim/:path*",
     "/kanal-analizi/:path*",
     "/ayarlar/:path*",
+    "/fikirler/:path*",
     "/destek/:path*",
     "/sss/:path*",
     "/profile/:path*",
     "/admin/users/:path*",
+    "/admin/feedback/:path*",
   ],
 };

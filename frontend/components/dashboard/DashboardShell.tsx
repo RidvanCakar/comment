@@ -1,25 +1,98 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/components/auth/AuthProvider";
 import DashboardSidebar from "@/components/dashboard/DashboardSidebar";
 
 export default function DashboardShell({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [countdown, setCountdown] = useState(4);
+
+  const nextUrl = pathname ? `/login?next=${encodeURIComponent(pathname)}` : "/login?next=%2Fdashboard";
+  const registerUrl = pathname ? `/register?next=${encodeURIComponent(pathname)}` : "/register";
 
   useEffect(() => {
-    if (!loading && !user) {
-      router.replace("/login?next=%2Fdashboard");
-    }
-  }, [loading, router, user]);
+    if (loading || user) return;
 
-  if (loading || !user) {
+    const interval = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          router.replace(nextUrl);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [loading, user, router, nextUrl]);
+
+  if (loading) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-bg-base text-text-muted">
-        Panel yükleniyor…
+        <div className="flex items-center gap-3">
+          <svg className="h-5 w-5 animate-spin text-accent-record" viewBox="0 0 24 24" fill="none">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+          </svg>
+          <span>Panel yükleniyor…</span>
+        </div>
+      </main>
+    );
+  }
+
+  if (!user) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-bg-base px-4 py-12 text-center">
+        <div className="mx-auto max-w-md rounded-3xl border border-accent-record/30 bg-bg-surface p-7 sm:p-9 shadow-2xl backdrop-blur-xl">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-accent-record/30 bg-accent-record/15 text-accent-record">
+            <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+          </div>
+
+          <span className="mt-4 inline-block font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-accent-record">
+            Yetkilendirme Gerekli
+          </span>
+
+          <h2 className="mt-2 font-display text-2xl font-extrabold text-text-primary">
+            Giriş Yapmanız Gerekiyor
+          </h2>
+
+          <p className="mt-3 text-xs leading-relaxed text-text-muted sm:text-sm">
+            Kanal analizi ve gelişmiş platform özelliklerini kullanabilmek için lütfen giriş yapın veya ücretsiz hesap oluşturun.
+          </p>
+
+          <div className="mt-6 flex flex-col gap-3">
+            <Link
+              href={nextUrl}
+              className="flex min-h-11 items-center justify-center rounded-xl bg-accent-record px-5 text-sm font-bold text-[#17130b] shadow-lg shadow-accent-record/20 transition-all hover:bg-accent-record/90 hover:-translate-y-0.5"
+            >
+              Giriş Yap
+            </Link>
+
+            <Link
+              href={registerUrl}
+              className="flex min-h-11 items-center justify-center rounded-xl border border-border-subtle bg-bg-base/70 px-5 text-sm font-bold text-text-primary transition-all hover:border-accent-record/40"
+            >
+              Ücretsiz Kayıt Ol (+5 Kredi)
+            </Link>
+          </div>
+
+          <p className="mt-5 font-mono text-[11px] text-text-muted">
+            {countdown > 0 ? (
+              <span>{countdown} saniye içinde giriş sayfasına yönlendiriliyorsunuz...</span>
+            ) : (
+              <span>Yönlendiriliyor...</span>
+            )}
+          </p>
+        </div>
       </main>
     );
   }

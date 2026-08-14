@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 
 from config import settings
 from database import AuthSession, User, get_db
-from email_service import send_verification_email
+from email_service import send_verification_email, send_password_reset_email
 
 
 auth_router = APIRouter(prefix="/auth", tags=["Kimlik Doğrulama"])
@@ -89,6 +89,17 @@ class VerifyEmailRequest(BaseModel):
 
 class ResendVerificationRequest(BaseModel):
     email: EmailStr | None = None
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str = Field(min_length=1, max_length=255)
+    new_password: str = Field(min_length=8, max_length=128)
+
+    _password = field_validator("new_password")(validate_password_strength)
 
 
 class ProfileUpdateRequest(BaseModel):
@@ -432,6 +443,68 @@ def resend_verification(
 
     return {
         "message": "Doğrulama e-postası tekrar gönderildi. Lütfen gelen kutunuzu kontrol edin.",
+    }
+
+
+@auth_router.post("/forgot-password")
+def forgot_password(
+    payload: ForgotPasswordRequest,
+    db: Annotated[Session, Depends(get_db)],
+    _limited: Annotated[None, Depends(sensitive_route)],
+):
+    email = normalize_email(str(payload.email))
+    user = db.query(User).filter(User.email == email).first()
+
+    if user and user.is_active:
+        token = secrets.token_urlsafe(32)
+        user.reset_token = token
+        user.reset_token_expires_at = utcnow() + timedelta(hours=1)
+        db.commit()
+        send_password_reset_email(user.email, user.full_name, token)
+
+    return {
+        "message": "Eğer bu e-posta adresi ile kayıtlı bir hesap varsa, şifre sıfırlama bağlantısı gönderildi."
+    }
+
+
+@auth_router.post("/reset-password")
+def reset_password(
+    payload: ResetPasswordRequest,
+    db: Annotated[Session, Depends(get_db)],
+    _limited: Annotated[None, Depends(sensitive_route)],
+):
+    raw_token = payload.token.strip()
+    user = db.query(User).filter(User.reset_token == raw_token).first()
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Geçersiz veya süresi dolmuş şifre sıfırlama bağlantısı.",
+        )
+
+    if user.reset_token_expires_at and user.reset_token_expires_at < utcnow():
+        user.reset_token = None
+        user.reset_token_expires_at = None
+        db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Şifre sıfırlama bağlantısının süresi dolmuş. Lütfen yeni bir şifre sıfırlama talebinde bulunun.",
+        )
+
+    user.password_hash = password_hasher.hash(payload.new_password)
+    user.reset_token = None
+    user.reset_token_expires_at = None
+    user.failed_login_attempts = 0
+    user.locked_until = None
+
+    # Güvenlik için kullanıcının mevcut tüm oturumlarını sonlandır
+    db.query(AuthSession).filter(AuthSession.user_id == user.id).delete()
+
+    db.commit()
+    db.refresh(user)
+
+    return {
+        "message": "Şifreniz başarıyla sıfırlandı. Yeni şifrenizle giriş yapabilirsiniz."
     }
 
 

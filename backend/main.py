@@ -33,6 +33,7 @@ from youtube_service import (
 from gemini_service import analyze_comments, analyze_channel_insights
 from comment_insights import enrich_analysis_with_comment_insights, topic_example_limit
 from auth import admin_router, auth_router, users_router
+from feedback import feedback_router, admin_feedback_router
 from config import settings
 from credits import (
     assert_can_analyze,
@@ -173,6 +174,8 @@ def _analysis_payload(
 app.include_router(admin_router)
 app.include_router(auth_router)
 app.include_router(users_router)
+app.include_router(feedback_router)
+app.include_router(admin_feedback_router)
 
 
 @app.get("/credits/quota")

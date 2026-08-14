@@ -93,3 +93,34 @@ def test_build_highlight_moments_groups_by_minute():
     assert moments[0]["timestamp_label"] == "12:00"
     assert moments[0]["total_engagement"] == 16
     assert moments[0]["comment_count"] == 2
+
+
+def test_is_junk_comment_filtering():
+    from gemini_service import is_junk_comment
+
+    assert is_junk_comment("") is True
+    assert is_junk_comment("   ") is True
+    assert is_junk_comment("👍👍👍") is True
+    assert is_junk_comment("sa") is True
+    assert is_junk_comment("asdfghjkl") is True
+    assert is_junk_comment("hahahahahaha") is True
+    assert is_junk_comment("Harika bir video olmuş, özellikle 04:15'teki anlatım çok iyiydi.") is False
+
+
+def test_select_richest_comments_prioritizes_detailed_critiques():
+    from gemini_service import select_richest_comments
+
+    comments = [
+        "sa",
+        "👍",
+        "güzel",
+        "02:15'teki espri çok iyiydi ama ses miksajı konuşmayı biraz bastırmış, keşke müzik kısık olsaydı.",
+        "Neden bu konuyu daha önce anlatmadınız? Bir sonraki videoda X konusuna da değinir misiniz?",
+        "asdfghjkl",
+    ]
+
+    richest = select_richest_comments(comments, max_sample=2)
+    assert len(richest) == 2
+    # The two rich comments with timestamps/questions/critiques should be prioritized over "sa", "👍", "güzel"
+    assert "02:15" in richest[0] or "02:15" in richest[1]
+    assert "?" in richest[0] or "?" in richest[1]

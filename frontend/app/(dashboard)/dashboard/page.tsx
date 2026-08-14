@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import AnalysisHistoryCard from "@/components/dashboard/AnalysisHistoryCard";
 import ChannelAnalysisHistoryCard from "@/components/dashboard/ChannelAnalysisHistoryCard";
+import FeedbackModal from "@/components/feedback/FeedbackModal";
 import { useAuth } from "@/components/auth/AuthProvider";
 import {
   countThisMonth,
@@ -17,6 +18,7 @@ export default function DashboardPage() {
   const { user } = useAuth();
   const [history, setHistory] = useState<AnalysisHistoryEntry[]>([]);
   const [channelHistory, setChannelHistory] = useState<ChannelAnalysisHistoryEntry[]>([]);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -125,6 +127,37 @@ export default function DashboardPage() {
           </div>
         )}
       </section>
+
+      {/* 💡 Fikir & Geri Bildirim Banner'ı */}
+      <section className="rounded-2xl border border-border-subtle bg-bg-surface/60 p-5 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3.5">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-accent-record/30 bg-accent-record/10 text-2xl">
+            💡
+          </span>
+          <div>
+            <h3 className="font-display text-base font-bold text-text-primary">
+              Bir Fikrin veya Özellik Önerin mi Var?
+            </h3>
+            <p className="text-xs text-text-muted">
+              YorumAI'yi seninle birlikte geliştiriyoruz. Önerilerini doğrudan geliştirici ekibine ilet.
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setFeedbackOpen(true)}
+          className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-accent-record/40 bg-accent-record/10 px-5 text-xs font-bold text-accent-record transition hover:bg-accent-record hover:text-[#17130b] shrink-0 cursor-pointer"
+        >
+          <span>Fikir / Öneri Gönder</span>
+          <span>→</span>
+        </button>
+      </section>
+
+      <FeedbackModal
+        isOpen={feedbackOpen}
+        onClose={() => setFeedbackOpen(false)}
+      />
     </div>
   );
 }

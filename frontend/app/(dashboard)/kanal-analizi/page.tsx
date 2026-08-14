@@ -178,7 +178,7 @@ export default function ChannelAnalysisPage() {
                 type="text"
                 value={channelUrl}
                 onChange={(e) => setChannelUrl(e.target.value)}
-                placeholder="Örn: @BarisOzcan, https://youtube.com/@KanalAdi veya Kanal ID"
+                placeholder="YouTube kanal linki, @kullanıcıadı veya Kanal ID..."
                 disabled={loading}
                 className="w-full min-h-12 rounded-xl border border-border-subtle bg-bg-base/70 pl-11 pr-4 text-sm sm:text-base font-sans text-text-primary placeholder-text-muted/50 outline-none transition-all focus:border-accent-record focus:ring-2 focus:ring-accent-record/20 disabled:opacity-50"
               />

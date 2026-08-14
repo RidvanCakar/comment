@@ -1,21 +1,69 @@
-# YorumAI - YouTube Yorum Analiz Platformu (Local & Yapay Zeka Destekli)
+# 🎬 YorumAI - YouTube Video & Kanal Yorum Analiz Platformu
 
-Bu proje, içerik üreticilerinin kendi YouTube videolarına gelen yorumları local ortamda, tamamen ücretsiz API limitleri kullanarak yapay zeka ile analiz etmesini sağlayan bir web uygulamasıdır.
+**YorumAI**, içerik üreticilerinin ve dijital pazarlamacıların YouTube video ve kanallarına gelen binlerce yorumu yapay zeka ile derinlemesine analiz etmesini sağlayan modern, full-stack bir analiz platformudur.
 
-Sistem, video yorumlarını çeker, anlamsız/spam/emoji içerenleri ayıklar ve **Gemini 2.5 Flash** kullanarak videonun duygu dağılımı (olumlu, olumsuz, nötr), yorum hacmine göre dinamik sayıda ana konu (yaklaşık 3–8) ve içerik üreticisine yönelik aksiyon alınabilir tavsiyeler üreten bir rapor sunar.
+Platform; tekil video analizlerinin yanı sıra **Kanal Geneli Toplu Analiz (Channel Insights)**, **Kredi Sistemi**, **E-posta Doğrulama**, **Şifre Sıfırlama**, **Kullanıcı Fikir/Geri Bildirim Yönetimi** ve **Admin Kontrol Paneli** özelliklerini içerir.
+
+---
+
+## 🌟 Öne Çıkan Özellikler
+
+### 1. 🎥 Tekil Video Analizi (1 Kredi)
+- YouTube video URL'sinden otomatik yorum çekme (1500+ yoruma kadar).
+- **Akıllı Yorum Ön İşleme:** Anlamsız, tek kelimelik veya sadece emoji içeren spam yorumları filtreleme; zaman damgası (`02:15`), soru ve eleştiri içeren zengin yorumları önceliklendirme.
+- **Gemini 2.5 Flash ile Derin Analiz:**
+  - Genel duygu dağılımı (Olumlu %, Olumsuz %, Nötr %).
+  - Yorum hacmine göre dinamik alt kategori ayrıştırması (3–10 tema).
+  - Türkçe **ironi, sarkazm ve sitemlerin** doğru duygu kategorisine (`negative`) ayrılması.
+  - Somut zaman damgaları ve olaylara dayalı **Nokta Atışı Tavsiye** (Insight, Action, Expected Impact).
+- PDF rapor indirme ve etkileşim anları (Highlight Moments) zaman çizelgesi.
+
+### 2. 📊 Kanal Geneli Analiz & Çapraz Sentez (3 Kredi)
+- Kanal URL'si, `@kullanıcıadı` veya Kanal ID'si ile son 5 videoyu otomatik tespit etme.
+- Videoların analiz sonuçlarını birleştirerek Gemini ile kanal geneli çapraz sentez:
+  - **Kanal Sağlık Skoru (0–100)**.
+  - **Duygu Trendi:** `IMPROVING` (Gelişiyor), `STABLE` (Dengeli), `DECLINING` (Düşüşte).
+  - **Tekrar Eden / Kronik Sorunlar:** Birden fazla videoda süregelen ses, kurgu veya içerik şikayetleri.
+  - **Kitle Dinamikleri & Değişim İçgörüleri:** Format ve konu değişikliklerine izleyici reaksiyonları.
+  - **Kanal Büyüme Stratejisi:** Tek ve yüksek etkili stratejik eylem planı.
+
+### 3. 💳 Kredi Sistemi & Kayıt Bonusu
+- Yeni kayıt olan her kullanıcıya **5 Ücretsiz Kredi** tanımlanır.
+- Video Analizi: **1 Kredi**, Kanal Analizi: **3 Kredi**.
+- Misafir kullanıcılar için 1 deneme kredisi.
+- Admin hesapları için sınırsız analiz yetkisi.
+
+### 4. 💡 Kullanıcı Fikir & Geri Bildirim Sistemi (Admin Yönetimli)
+- Kullanıcıların platform içerisinden doğrudan fikir, özellik isteği, iyileştirme veya hata bildirimi gönderebilmesi (`/fikirler`).
+- Kullanıcının kendi gönderdiği bildirimlerin durumunu (*Beklemede*, *İnceleniyor*, *Planlandı*, *Tamamlandı*) anlık takip edebilmesi.
+- **Admin Geri Bildirim Paneli (`/admin/feedback`):**
+  - İstatistik sayaçları, durum sekmeleri ve metin araması.
+  - Tek tıkla durum güncelleme ve dahili yönetici notu (`admin_notes`) ekleme.
+
+### 5. 🔐 Güvenli Kimlik Doğrulama & E-posta
+- Argon2 parola hashleme, hashlenmiş opaque oturum tokenları.
+- **E-posta Doğrulama:** Resend API ile 6 haneli doğrulama kodu.
+- **Şifre Sıfırlama:** E-posta ile güvenli tek kullanımlık tokenlı şifre yenileme bağlantısı (`/forgot-password`, `/reset-password`).
+- **Admin Kullanıcı Yönetimi (`/admin/users`):** Rol değiştirme, kredi ekleme/çıkarma, kullanıcı kilitleme/silme.
+
+### 6. ⚡ Hata & Kota Yönetimi (429 Rate Limit Koruması)
+- Gemini API kotaları aşıldığında otomatik üstel geri çekilme (exponential backoff) ve çoklu model fallback mekanizması (`gemini-2.5-flash` → `gemini-2.0-flash` → `gemini-1.5-flash`).
+- SQLite yerel önbellekleme (Cache) sayesinde daha önce analiz edilmiş videolar kotaları tüketmeden anında yüklenir.
 
 ---
 
 ## 🚀 Teknolojik Mimari
 
-- **Backend:** Python 3.11+, FastAPI, Uvicorn, Pydantic, python-dotenv
-- **Yapay Zeka (LLM):** Google Gemini API (`google-generativeai`, model: `gemini-2.5-flash`)
-- **Veri Çekme:** YouTube Data API v3 (`google-api-python-client`)
-- **Veritabanı / Önbellek (Cache):** SQLite (SQLAlchemy ORM ile) — Aynı video tekrar analiz edildiğinde API kotalarının tükenmemesi için yerel cache mekanizması mevcuttur.
-- **Authentication:** Argon2 parola hashleme, veritabanında hashlenmiş opaque session tokenları ve e-posta/şifre girişi
-- **Frontend:** Next.js 16 (App Router), React 19, TypeScript
-- **Stil:** Tailwind CSS v4 (`app/globals.css` üzerinden)
-- **Durum Yönetimi:** React `useState` (ek bir global state kütüphanesi yok)
+| Katman | Teknoloji / Kütüphane |
+|---|---|
+| **Backend** | Python 3.11+, FastAPI, Uvicorn, Pydantic, SQLAlchemy |
+| **Yapay Zeka (LLM)** | Google Gemini API (`gemini-2.5-flash`, `gemini-2.0-flash`, `gemini-1.5-flash`) |
+| **Veri Çekme** | YouTube Data API v3 (`google-api-python-client`) |
+| **E-posta Servisi** | Resend API (`resend`) |
+| **Veritabanı** | SQLite (9 aşamalı otomatik migration altyapısı) |
+| **Authentication** | Argon2 password hashing, secure SHA-256 session tokens |
+| **Frontend** | Next.js 16 (App Router), React 19, TypeScript |
+| **Stil & Tema** | Tailwind CSS v4, Açık/Koyu Tema (Dark Mode) desteği |
 
 ---
 
@@ -24,138 +72,134 @@ Sistem, video yorumlarını çeker, anlamsız/spam/emoji içerenleri ayıklar ve
 ```
 comment/
 ├── backend/
-│   ├── main.py              # FastAPI uygulaması ve API uç noktaları
-│   ├── auth.py              # Auth, profil ve admin API uçları
-│   ├── config.py            # Ortam değişkenlerinden güvenli uygulama ayarları
-│   ├── youtube_service.py   # YouTube Video ID extraction ve API veri çekme mantığı
-│   ├── gemini_service.py    # Gemini API entegrasyonu ve yapılandırılmış JSON çıktısı
-│   ├── database.py          # SQLite modelleri, cache ve eklemeli migration'lar
-│   ├── requirements.txt     # Python bağımlılık paketleri
-│   ├── requirements-dev.txt # Test bağımlılıkları
-│   ├── tests/               # Auth ve migration testleri
-│   ├── .env                 # API anahtarları (gizli, git'e eklenmez)
-│   ├── .env.example         # Örnek env dosyası
-│   └── .gitignore           # Git yoksayma dosyası
+│   ├── main.py                  # FastAPI ana sunucu ve router tanımları
+│   ├── auth.py                  # Giriş, kayıt, şifre sıfırlama, oturum yönetimi
+│   ├── credits.py               # Kredi kontrolü ve bakiye düşüş mantığı
+│   ├── feedback.py              # Kullanıcı ve admin geri bildirim API uçları
+│   ├── email_service.py         # Resend e-posta gönderim şablonları
+│   ├── youtube_service.py       # YouTube Data API video ve kanal veri çekme
+│   ├── gemini_service.py        # Gemini entegrasyonu, promptlar, akıllı yorum filtreleme
+│   ├── comment_insights.py      # Öne çıkan yorumlar ve zaman damgası analizi
+│   ├── database.py              # SQLAlchemy modelleri ve veritabanı migration'ları (1..9)
+│   ├── requirements.txt         # Python bağımlılıkları
+│   ├── requirements-dev.txt     # Test bağımlılıkları
+│   └── tests/                   # 37 adet kapsamlı pytest birim ve entegrasyon testi
+│
 ├── frontend/
 │   ├── app/
-│   │   ├── layout.tsx       # Root layout, fontlar ve metadata
-│   │   ├── page.tsx         # Tanıtım sayfası
-│   │   ├── analyze/         # Herkese açık analiz aracı
-│   │   ├── login/           # E-posta/şifre girişi
-│   │   ├── register/        # Hesap oluşturma
-│   │   ├── profile/         # Korumalı kullanıcı profili
-│   │   ├── admin/users/     # Admin kullanıcı yönetimi
-│   │   └── globals.css      # Tailwind v4 tema değişkenleri ve özel animasyonlar
-│   ├── components/
-│   │   ├── AnalyzeForm.tsx  # URL girişi ve "Yeniden Analiz Et" seçeneği
-│   │   ├── SentimentTabs.tsx# Duygu sekmeleri, kategoriler ve örnek yorumlar
-│   │   ├── auth/            # Auth provider, navigasyon ve form kabuğu
-│   │   ├── landing/         # Landing page bölümleri
-│   │   ├── pdf/             # PDF rapor oluşturma/indirme
-│   │   ├── LoadingState.tsx # Yüklenme durumu
-│   │   └── ErrorState.tsx   # Hata durumu
-│   ├── lib/                 # Typed API istemcisi ve güvenli yönlendirme yardımcıları
-│   ├── proxy.ts             # Next.js 16 profil/admin route koruması
-│   ├── package.json         # Next.js bağımlılıkları ve scriptler
-│   ├── next.config.ts       # Next.js yapılandırması
-│   ├── postcss.config.mjs   # PostCSS / Tailwind yapılandırması
-│   ├── tsconfig.json        # TypeScript yapılandırması
-│   └── .env.local           # NEXT_PUBLIC_API_URL (backend adresi)
-└── README.md                # Kurulum ve kullanım yönergeleri
+│   │   ├── (dashboard)/         # Sol kenar çubuklu (Sidebar) dashboard rotaları
+│   │   │   ├── dashboard/       # Genel bakış ve analiz geçmişi
+│   │   │   ├── analyze/         # Tekil video analizi
+│   │   │   ├── kanal-analizi/   # Kanal geneli analiz ve sentez
+│   │   │   ├── analizlerim/     # Kayıtlı video ve kanal analizleri
+│   │   │   ├── fikirler/        # Fikir & öneri paylaşım sayfası
+│   │   │   ├── destek/          # Destek ve yardım merkezi
+│   │   │   ├── sss/             # Sıkça sorulan sorular
+│   │   │   ├── ayarlar/         # Kullanıcı hesap ve şifre ayarları
+│   │   │   └── admin/           # Admin panelleri (/admin/users, /admin/feedback)
+│   │   ├── forgot-password/     # Şifremi unuttum sayfası
+│   │   ├── reset-password/      # Şifre sıfırlama sayfası
+│   │   ├── verify-email/        # E-posta doğrulama sayfası
+│   │   ├── login/ & register/   # Giriş ve kayıt sayfaları
+│   │   └── page.tsx             # Modern ürün tanıtım sayfası
+│   ├── components/              # Yeniden kullanılabilir React bileşenleri
+│   │   ├── auth/                # Auth provider ve giriş formları
+│   │   ├── dashboard/           # Sidebar, navbar, analiz kartları
+│   │   ├── feedback/            # FeedbackModal bileşeni
+│   │   └── pdf/                 # PDF rapor dışa aktarma
+│   ├── lib/                     # Typed API istemcisi ve yardımcı fonksiyonlar
+│   └── proxy.ts                 # Route koruma proxy'si
+└── README.md
 ```
-
-> Not: `backend/venv/`, `backend/video_analysis.db` ve `frontend/node_modules/` çalışma zamanında oluşur; kaynak kod yapısının parçası değildir.
 
 ---
 
-## ⚙️ Kurulum ve Çalıştırma Adımları
+## ⚙️ Kurulum ve Çalıştırma
 
-### 1. Python Sanal Ortam Kurulumu
-Backend dizinine girip sanal ortam oluşturun ve aktif hale getirin:
+### 1. Backend Kurulumu
 
-**Windows (PowerShell):**
-```powershell
+```bash
 cd backend
+
+# Sanal ortam oluşturma ve aktifleştirme (Windows)
 python -m venv venv
 .\venv\Scripts\Activate.ps1
-```
 
-**macOS / Linux:**
-```bash
-cd backend
-python3 -m venv venv
-source venv/bin/activate
-```
-
-### 2. Backend Bağımlılıklarının Kurulması
-```bash
+# Bağımlılıkları yükleme
 pip install -r requirements.txt
-```
-
-Testleri de çalıştıracaksanız:
-```bash
 pip install -r requirements-dev.txt
-python -m pytest -q
 ```
 
-### 3. API Anahtarlarının Girilmesi
-`backend/` klasörünün içinde bir `.env` dosyası oluşturun (veya `.env.example` dosyasını kopyalayın) ve anahtarları ekleyin:
+### 2. Ortam Değişkenleri (`backend/.env`)
+
+`backend/` dizininde bir `.env` dosyası oluşturun:
+
 ```env
-YOUTUBE_API_KEY=KENDI_YOUTUBE_API_ANAHTARINIZ
-GEMINI_API_KEY=KENDI_GEMINI_API_ANAHTARINIZ
-AUTH_SECRET=EN_AZ_32_KARAKTER_RASTGELE_BIR_DEGER
+# Google & YouTube API Anahtarları
+YOUTUBE_API_KEY=YOUR_YOUTUBE_API_KEY
+GEMINI_API_KEY=YOUR_GEMINI_API_KEY
+
+# Güvenlik & Oturum
+AUTH_SECRET=EN_AZ_32_KARAKTERLI_GUVENLI_RASTGELE_ANAHTAR
 FRONTEND_URL=http://localhost:3000
 FRONTEND_ORIGINS=http://localhost:3000
 AUTH_COOKIE_SECURE=false
-INITIAL_ADMIN_EMAIL=admin@example.com
+
+# İlk Yönetici Hesabı (Kayıt olunduğunda otomatik Admin yapılır)
+INITIAL_ADMIN_EMAIL=admin@yorumai.com
+
+# E-posta Servisi (Resend)
+RESEND_API_KEY=re_YOUR_RESEND_API_KEY
+EMAIL_FROM="YorumAI <onboarding@resend.dev>"
 ```
 
-Production'da `AUTH_COOKIE_SECURE=true` kullanın. Frontend `app.example.com`,
-backend `api.example.com` ise `AUTH_COOKIE_DOMAIN=.example.com` olarak ayarlayın.
-`INITIAL_ADMIN_EMAIL` ile aynı e-posta adresiyle kayıt olunduğunda veya giriş
-yapıldığında hesap otomatik olarak Admin rolüne yükseltilir.
+### 3. Backend Sunucusunu Başlatma
 
-### 4. API Sunucusunun Başlatılması
-FastAPI backend'ini çalıştırmak için:
 ```bash
-python main.py
+cd backend
+python -m uvicorn main:app --reload --port 8000
 ```
-Sunucu varsayılan olarak **`http://127.0.0.1:8000`** adresinde çalışır. Tarayıcıda bu adresi açtığınızda `{"status": "ok", ...}` çıktısını görerek doğrulayabilirsiniz.
+API sunucusu **`http://127.0.0.1:8000`** adresinde çalışır.
 
-### 5. Frontend Kurulumu ve Çalıştırma
-Ayrı bir terminalde `frontend/` dizinine geçin:
+### 4. Backend Testlerini Çalıştırma
+
+```bash
+cd backend
+python -m pytest
+```
+
+### 5. Frontend Kurulumu ve Başlatma
+
+Ayrı bir terminalde:
+
 ```bash
 cd frontend
+
+# Bağımlılıkları yükleme
 npm install
+
+# Geliştirme sunucusunu başlatma
 npm run dev
 ```
-Next.js geliştirme sunucusu varsayılan olarak **`http://localhost:3000`** adresinde açılır.
 
-Frontend, backend'e `NEXT_PUBLIC_API_URL` üzerinden bağlanır (`frontend/.env.local` içinde varsayılan: `http://localhost:8000`).
-Korumalı route kontrolü için `BACKEND_INTERNAL_URL` da tanımlanabilir; örnek
-değerler `frontend/.env.example` dosyasındadır.
+Uygulama **`http://localhost:3000`** adresinde yayına başlar.
 
 ---
 
-## 🔐 Authentication
+## 🧪 Test Kapsamı
 
-- E-posta/şifre hesaplarında şifreler Argon2 ile hashlenir; ham şifre saklanmaz.
-- Oturum cookie'si `HttpOnly` ve `SameSite=Lax` kullanır; sunucuda yalnızca
-  token'ın SHA-256 hash'i tutulur.
-- `/analyze` herkese açıktır. `/profile` giriş, `/admin/users` Admin rolü ister.
-- Email doğrulama ve şifremi unuttum akışları bu sürümün kapsamı dışındadır.
-
-| Script | Komut | Açıklama |
-|--------|--------|----------|
-| Geliştirme | `npm run dev` | `next dev` — yerel geliştirme sunucusu |
-| Production build | `npm run build` | `next build` |
-| Production start | `npm start` | `next start` |
-| Lint | `npm run lint` | ESLint |
+Backend test suitinde **37 birim ve entegrasyon testi** bulunmaktadır:
+- `test_auth.py`: Kayıt, giriş, oturum doğrulama, rol yetkilendirme.
+- `test_channel_insights.py`: Kanal ID çözümleme, son 5 video çekimi, sentez raporlama.
+- `test_comment_insights.py`: Yorum puanlama, zaman damgası tespiti, çöp/spam filtreleme.
+- `test_credits.py`: 5 kayıt kredisi, video analizi (1 kredi) ve kanal analizi (3 kredi) düşüşleri.
+- `test_email_verification.py`: 6 haneli doğrulama kodu üretimi ve doğrulama akışı.
+- `test_feedback.py`: Kullanıcı geri bildirim oluşturma, admin filtreleme, durum güncelleme ve silme.
+- `test_migrations.py`: 9 aşamalı SQLite veritabanı şema doğrulama testi.
+- `test_password_reset.py`: Tokenlı şifre sıfırlama talebi ve yeni şifre belirleme akışı.
 
 ---
 
-## 💡 Kota ve Önbellek (Cache) Çalışma Mantığı
+## 📄 Lisans
 
-1. **Önbellek Korunması:** Bir YouTube videosu analiz edildiğinde, elde edilen analiz sonucu SQLite veritabanına (`video_analysis.db`) kaydedilir. Aynı video için tekrar analiz istendiğinde, backend API anahtarı sınırlarını ve kotaları zorlamamak adına doğrudan yerel veritabanındaki veriyi getirir. Arayüzde de **ÖNBELLEK** rozeti gösterilir.
-2. **Yeniden Analiz (Force Refresh):** Videoya yeni yorumlar gelmişse veya analizi yenilemek isterseniz, arayüzdeki **YENİDEN ANALİZ ET (ÖNBELLEĞİ ATLA)** seçeneğini aktif ederek önbelleği atlayıp taze verilerle yeni bir istek gerçekleştirebilirsiniz.
-3. **Yorum Limiti:** Ücretsiz YouTube kota limiti ve Gemini istek limitlerini aşmamak adına varsayılan analiz edilecek yorum sayısı `MAX_COMMENTS = 1500` olarak sınırlandırılmıştır. Bu limiti `backend/main.py` dosyasındaki `MAX_COMMENTS` sabitinden değiştirebilirsiniz.
+Bu proje MIT lisansı ile lisanslanmıştır.

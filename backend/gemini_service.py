@@ -1,13 +1,176 @@
 import json
+import re
+import time
+import asyncio
 import google.generativeai as genai
 from typing import Dict, Any, List
 
 from comment_insights import topic_example_range
 
+FALLBACK_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
+
+
+def is_junk_comment(comment: str) -> bool:
+    """Tek kelimelik, anlamsız, sadece emoji veya spam yorumları ayıklar."""
+    if not comment or not isinstance(comment, str):
+        return True
+    text = comment.strip()
+    if not text:
+        return True
+
+    # Alfanümerik karakter sayısı kontrolü (en az 2 harf/rakam olmalı)
+    alphanumeric_count = sum(1 for c in text if c.isalnum())
+    if alphanumeric_count < 2:
+        return True
+
+    # Çok kısa tek kelimelik veya selam/selamlama spam'leri
+    words = text.split()
+    if len(words) == 1:
+        low = text.lower()
+        if len(text) <= 4 or low in {
+            "sa", "as", "ok", "ilk", "first", "hi", "hey", "merhaba", "selam",
+            "1", "2", "3", "abi", "kral", "reis", "adamsın", "kalp", "like"
+        }:
+            return True
+
+    # Gülüş spam'leri (örn: hahahaha, ahahah, sjsjsj, ksksks, lolololo)
+    low_no_space = re.sub(r"\s+", "", text.lower())
+    if re.fullmatch(r"^(?:ha|he|hi|ho|ah|ja|lol|kik|sjsj|ksks|pff|puha)+$", low_no_space):
+        return True
+
+    # Çok az benzersiz harf içeren anlamsız uzun spam (örn: aaaaaa, hahahaha, kkkkk)
+    unique_letters = set(c for c in low_no_space if c.isalpha())
+    if len(low_no_space) >= 5 and len(unique_letters) <= 2:
+        return True
+
+    # Tekrarlayan tek harf/klavye spam'leri (örn: asdfghjk)
+    if re.fullmatch(r"^[asdfghjklşiouüçömnbvcxzqwerty]{5,}$", low_no_space):
+        vowels = sum(1 for c in low_no_space if c in "aeıioöuü")
+        if vowels == 0 or (len(low_no_space) > 8 and vowels < 2):
+            return True
+
+    return False
+
+
+def score_comment_richness(comment: str) -> float:
+    """
+    Yorumun içerik derinliğini, soru, eleştiri, zaman damgası ve öneri barındırma derecesini puanlar.
+    """
+    text = comment.strip()
+    score = 0.0
+    lowered = text.lower()
+
+    # Uzunluk katkısı (20-400 karakter arası detaylı açıklamalar değerlidir)
+    length = len(text)
+    if length >= 25:
+        score += min(45.0, length / 6.0)
+
+    # Zaman damgası / Timestamp referansı (örn: 01:23, 12:45, 1:05:20)
+    if re.search(r"\b(?:\d{1,2}:)?\d{1,2}:\d{2}\b", text):
+        score += 35.0
+
+    # Soru ve merak ifadeleri
+    if "?" in text or re.search(r"\b(neden|nasıl|ne zaman|nerede|kim|hangisi|acaba|mı|mi|mu|mü)\b", lowered):
+        score += 20.0
+
+    # Eleştiri, tavsiye ve teknik sitem kelimeleri
+    critique_keywords = (
+        "keşke", "ama", "fakat", "lakin", "ancak", "ses", "müzik", "mikrofon", "ışık",
+        "kurgu", "edit", "intro", "outro", "uzun", "kısa", "tempo", "sıkıcı", "olmamış",
+        "eksi", "öneri", "tavsiye", "yerine", "geliştirilmeli", "bence", "sponsor", "reklam",
+        "saçma", "yanlış", "eksik", "anlaşılmıyor", "düzelt"
+    )
+    for kw in critique_keywords:
+        if re.search(rf"\b{re.escape(kw)}\b", lowered):
+            score += 12.0
+
+    # İroni / sitem / kinaye sinyalleri
+    irony_keywords = (
+        "aynen", "tebrikler", "harika", "mükemmel", "şaka", "kulaklık", "sağır",
+        "özet", "tık tuzağı", "clickbait", "boşuna", "zaman kaybı", "sağol"
+    )
+    for kw in irony_keywords:
+        if re.search(rf"\b{re.escape(kw)}\b", lowered):
+            score += 10.0
+
+    return score
+
+
+def select_richest_comments(comments: List[str], max_sample: int = 150) -> List[str]:
+    """
+    Yorumları filtreleyip en bilgilendirici ve kaliteli olanları seçer.
+    """
+    if not comments:
+        return []
+
+    # 1. Aşama: Anlamsız/çöp yorumları filtrele
+    cleaned = [c.strip() for c in comments if not is_junk_comment(c)]
+    if not cleaned:
+        cleaned = [c.strip() for c in comments if c and c.strip()]
+
+    if len(cleaned) <= max_sample:
+        return cleaned
+
+    # 2. Aşama: Zenginlik puanına göre sırala ve en yüksek puanlıları seç
+    scored = sorted(cleaned, key=score_comment_richness, reverse=True)
+    return scored[:max_sample]
+
+
+def _generate_with_retry_sync(prompt: str, api_key: str) -> str:
+    genai.configure(api_key=api_key)
+    last_error = None
+
+    for model_name in FALLBACK_MODELS:
+        try:
+            model = genai.GenerativeModel(model_name)
+            response = model.generate_content(
+                prompt,
+                generation_config={"response_mime_type": "application/json"},
+            )
+            if response and response.text:
+                return response.text.strip()
+        except Exception as e:
+            last_error = e
+            err_str = str(e).lower()
+            if "429" in err_str or "quota" in err_str or "resourceexhausted" in err_str:
+                time.sleep(2)
+                continue
+            raise e
+
+    if last_error:
+        raise last_error
+    raise RuntimeError("Gemini modelinden yanıt alınamadı.")
+
+
+async def _generate_with_retry_async(prompt: str, api_key: str) -> str:
+    genai.configure(api_key=api_key)
+    last_error = None
+
+    for model_name in FALLBACK_MODELS:
+        try:
+            model = genai.GenerativeModel(model_name)
+            response = await model.generate_content_async(
+                prompt,
+                generation_config={"response_mime_type": "application/json"},
+            )
+            if response and response.text:
+                return response.text.strip()
+        except Exception as e:
+            last_error = e
+            err_str = str(e).lower()
+            if "429" in err_str or "quota" in err_str or "resourceexhausted" in err_str:
+                await asyncio.sleep(2)
+                continue
+            raise e
+
+    if last_error:
+        raise last_error
+    raise RuntimeError("Gemini modelinden yanıt alınamadı.")
+
 
 def analyze_comments(api_key: str, comments: List[str]) -> Dict[str, Any]:
     """
-    Tüm yorumları tek bir Gemini isteğinde analiz ettirip, JSON formatında yapılandırılmış sonuç döndürür.
+    Tüm yorumları filtrelenmiş ve zenginleştirilmiş tek bir Gemini isteğinde analiz ettirip, JSON formatında yapılandırılmış sonuç döndürür.
     """
     if not api_key:
         raise ValueError("Gemini API anahtarı eksik.")
@@ -28,12 +191,8 @@ def analyze_comments(api_key: str, comments: List[str]) -> Dict[str, Any]:
             }
         }
         
-    # Gemini yapılandırması
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel("gemini-2.5-flash")
-    
-    # Yorumları ID'leri ile birlikte metin bloğu haline getiriyoruz (hız ve kota için max 150 temsili yorum)
-    sampled_comments = comments[:150] if len(comments) > 150 else comments
+    # Anlamsız yorumları ayıklayıp en kaliteli/içgörü dolu yorumları seçiyoruz
+    sampled_comments = select_richest_comments(comments, max_sample=150)
     comments_block = "\n---\n".join([f"[ID: {i}] {c}" for i, c in enumerate(sampled_comments)])
     comment_count = len(comments)
     example_min, example_max = topic_example_range(len(sampled_comments))
@@ -48,67 +207,57 @@ def analyze_comments(api_key: str, comments: List[str]) -> Dict[str, Any]:
     else:
         min_topics, max_topics = 3, 5
     
-    prompt = f"""Sen profesyonel bir YouTube Yorum Analisti yapay zekasısın.
-Aşağıdaki YouTube video yorumlarını analiz et:
+    prompt = f"""Sen profesyonel bir YouTube Yorum Analisti ve İçerik Stratejisti yapay zekasısın.
+Aşağıdaki YouTube video yorumlarını derinlemesine analiz et:
 
-TOPLAM YORUM SAYISI: {comment_count}
+TOPLAM YORUM SAYISI: {comment_count} (Filtrelenmiş ve en zengin {len(sampled_comments)} yorum örneklendi)
 ZORUNLU KATEGORİ SAYISI: EN AZ {min_topics}, EN FAZLA {max_topics}
 
 YORUMLAR:
 {comments_block}
 
-ANALİZ YÖNERGELERİ:
-1. Spam, reklam, anlamsız veya sadece emoji içeren yorumları analize dahil etme.
-2. Yorumlar Türkçe veya İngilizce olabilir. Hepsini analiz et.
-3. Raporu ve analiz sonuçlarını tamamen Türkçe olarak hazırla.
-4. KATEGORİ SAYISI KURALI (ZORUNLU KISIT, TERCİH DEĞİL):
-   Bu videoda {comment_count} yorum var. Aşağıdaki eşik tablosuna göre MUTLAKA en az {min_topics} kategori üret; {max_topics}'den fazla olmasın:
-   - 100-300 yorum  -> minimum 4 kategori
-   - 300-800 yorum  -> minimum 6 kategori
-   - 800+ yorum     -> minimum 8 kategori (üst sınır 12)
-   Eğer yeterince çeşitli tema bulamadığını düşünüyorsan, mevcut geniş temaları daha ince alt kategorilere BÖL
-   (örneğin "içerik" yerine "konu seçimi", "anlatım tarzı", "tempo" gibi ayrı kategoriler;
-   "beğeni" yerine övgünün neye yönelik olduğunu ayrıştır: editleme, mizah, samimiyet, bilgi değeri vb.).
-   Bu toplam kategori sayısı üç duyguya (positive / negative / neutral) doğal şekilde dağılsın.
-   Dağılım eşit olmak ZORUNDA DEĞİL — yorumların gerçek eğilimine göre olsun
-   (örneğin olumlu yorum çoğunluktaysa positive altında daha fazla kategori çıkması normaldir).
-5. Kategoriler birbiriyle anlamlı şekilde ayrışmalı. "Genel beğeni", "olumlu yorumlar", "izleyici tepkisi",
-   "iyi video", "kötü video" gibi her şeyi kapsayan tembel/geniş kategoriler KULLANMA.
-   Bunun yerine yorumlardaki gerçek alt temaları ayrı ayrı yakala
-   (örnekler: editleme, sunum/sunucu performansı, konu seçimi, mizah tarzı, teknik kalite,
-   ses/görüntü kalitesi, tempo, karakterler, senaryo, etkileşim vb. — videoya özgü gerçek temalar neyse onları kullan).
-6. Her konu başlığı (topic) için ZORUNLU alanlar:
-   - "percent": o kategorinin toplam (analiz edilen) yorumlar içindeki payı (0-100 arası sayı).
-   - "sentiment": yalnızca şu üç değerden biri — "positive" (olumlu), "negative" (olumsuz) veya "neutral" (nötr). "mixed" KULLANMA.
-   Bir kategori çoğunlukla olumluysa positive, çoğunlukla olumsuzsa negative, belirgin bir yönü yoksa veya hem övgü hem eleştiri dengeliyse neutral yaz.
-7. Her konu başlığı için içerik üreticisine aksiyon alabileceği net bir tavsiye (insight) yaz.
-8. Her konu başlığı için, o konuyla en çok ilişkili olan/temsil eden en az {example_min}, en fazla {example_max} adet temsili örnek yorumun ID'sini (sayı olarak) 'example_comment_ids' listesine ekle.
-9. "overall_summary" (özet rapor) şu kurallara uymalı:
-   - 3-4 cümlelik, gerçek verilere dayanan bir YÖNETİCİ ÖZETİ olsun.
-   - Hangi temaların öne çıktığını yüzdeleriyle belirt (örnek: "Yorumların %40'ı editleme kalitesini övüyor").
-   - İzleyici kitlesinin genel tavrını net söyle (coşkulu mu, eleştirel mi, nostaljik mi vb.).
-   - Dikkat çeken bir çelişki veya sürpriz bulgu varsa MUTLAKA vurgula
-     (örnek: "Yorumların çoğu olumlu olsa da ses seviyesiyle ilgili tekrar eden bir teknik şikayet var").
-   - Jenerik cümlelerden kaçın ("izleyiciler videoyu beğenmiş" gibi); doğrudan BU videoya özgü konuş.
-10. "top_recommendation" (bir sonraki video için kritik tavsiye) ÜÇ AYRI ALANDAN oluşan bir JSON nesnesi olmalı.
-   Bu bölüm ürünün EN DEĞERLİ çıktısıdır; içerik üreticisi buna bakarak karar verecek. Kurallar:
-   - "insight" (Tespit): SAYISAL VERİYE DAYALI olmak ZORUNDA. En az İKİ sayısal referans içermeli:
-     * İlgili kategorinin yüzdesi VE bu yüzdenin kabaca kaç yoruma denk geldiği
-       (örnek: "Yorumların %23'ü (~280 yorum) ses miksajından şikayetçi; bu, en büyük ikinci olumsuz tema").
-     * Mümkünse karşılaştırma ekle: kategorinin diğer kategorilere veya genel duygu dağılımına oranı
-       (örnek: "olumsuz yorumların %70'i tek başına bu konuda toplanıyor").
-   - "action" (Aksiyon): NOKTA ATIŞI tek bir adım olmalı — içerik üreticisi bunu okuyunca bir sonraki videoda
-     TAM OLARAK ne yapacağını bilmeli. Şunları içermeli:
-     * Videonun NERESİNDE / HANGİ aşamasında uygulanacağı (giriş, ilk 30 saniye, kurgu aşaması, ses miksajı, kapanış vb.),
-     * NE yapılacağı (ölçülebilir/denetlenebilir bir değişiklik: "intro'yu 60 saniyeden 15 saniyeye indir",
-       "konuşma sesini fon müziğinin en az 2 kat üstünde miksle", "X segmentine videoda ayrı bir bölüm ayır" gibi),
-     * Birden fazla önerin varsa yalnızca EN YÜKSEK ETKİLİ olanı seç; liste verme, tek net adım ver.
-     "Daha iyi olun", "daha çok içerik üretin", "izleyicilerle etkileşime geçin" gibi belirsiz/jenerik laflar KESİNLİKLE YASAK.
-   - "expected_impact" (Beklenen Etki): Aksiyonun hangi metriği nasıl etkileyeceğini söyle ve bunu
-     yorum verisindeki sayıya bağla (örnek: "Bu şikayet kaynağı giderilirse olumsuz yorumların ~%70'ini
-     oluşturan bu tema küçülür; izlenme süresi ve geri dönen izleyici oranında artış beklenir").
-     Boş vaatler yerine, verideki hangi sinyalin hangi kazanca işaret ettiğini açıkla.
-11. Yanıtı SADECE ve SADECE aşağıdaki JSON şemasında döndür. JSON harici hiçbir açıklama metni veya ek bilgi ekleme.
+KRİTİK ANALİZ YÖNERGELERİ:
+
+1. YÜZEYSEL VE JENERİK LAFLARI KESİNLİKLE KULLANMA:
+   - "İçerik çok beğenildi", "İzleyiciler mutlu oldu", "Güzel bir video", "İzleyiciler memnun" gibi yuvarlak ve tembel ifadeler KESİNLİKLE YASAKTIR.
+   - Yorumlardaki SOMUT DETAYLARA odaklan:
+     * Varsa izleyicilerin belirttiği dakika/saniye (timestamp) referansları (ör: 03:15'teki şaka, 12:40'taki ses patlaması),
+     * Konuklar, karakterler, anlatılan spesifik hikayeler ve olaylar,
+     * Somut teknik detaylar: Ses miksajı/müzik seviyesi, ışık açısı, intro uzunluğu, görüntü kalitesi, kurgu hızı/tempo, sponsorluk yerleşimi.
+
+2. TÜRKÇE İRONİ, SARKAZM VE SİTEM TESPİTİ (ÇOK ÖNEMLİ):
+   Türkçe sosyal medya yorumlarında sıkça kullanılan kinaye, iğneleme, ters köşeler ve mizahi sitemleri DOĞRU duyguya (negative/neutral) ayır:
+   - İçinde "harika", "mükemmel", "tebrikler", "bravo", "şahane" gibi pozitif kelimeler geçse dahi, cümlenin bütününde gizli bir alay, sitem veya hayal kırıklığı varsa bu bir OLUMSUZ / ELEŞTİRİ (negative) yorumdur.
+   - ÖRNEKLER:
+     * "Yine harika bir video, 40 dakikada hiçbir şey anlatmadın tebrikler" -> İRONİDİR -> `negative` (Zaman kaybı eleştirisi).
+     * "Ses miksajı mükemmel olmuş, kulaklıkla dinlerken sağır kaldım" -> İRONİDİR -> `negative` (Ses seviyesi şikayeti).
+     * "Böyle devam et reis, abone sayın 0 olana kadar arkandayız :)" -> SİTEMDİR -> `negative`.
+     * "Aynen kardeşim kesin öyle olmuştur" -> İNANMAZLIK / ŞÜPHE -> `negative` veya `neutral`.
+     * "Mükemmel bir sponsorluk videosu olmuş, araya biraz da içerik koysaydınız" -> SPONSORLUK ELEŞTİRİSİ -> `negative`.
+   - Pozitif kelimelerin yüzeyine kanma; cümlenin alt metnindeki gerçek izleyici niyetini (intent) analiz et.
+
+3. KATEGORİ SAYISI VE AYRIŞTIRMA KURALI:
+   Bu videoda {comment_count} yorum var. MUTLAKA en az {min_topics} kategori üret; {max_topics}'den fazla olmasın.
+   "Genel beğeni", "olumlu yorumlar", "izleyici tepkisi", "iyi video", "kötü video" gibi genel kategoriler KULLANMA.
+   Temaları videoya özel alt başlıklara ayır (örneğin: "Mizah ve Espri Zamanlaması", "Ses ve Fon Müziği Dengesi", "Konuk Performansı", "Bilgilendiricilik Düzeyi", "Sponsorluk Geçişleri" vb.).
+
+4. HER KONU BAŞLIĞI (TOPIC) İÇİN ZORUNLU ALANLAR:
+   - "topic": Özgün ve somut kategori adı.
+   - "percent": Yorumlar içindeki yaklaşık yüzdesi (0-100 arası sayı).
+   - "sentiment": Yalnızca "positive", "negative" veya "neutral". İronik yorumlar içeren temaları negative olarak işaretle.
+   - "insight": İçerik üreticisine net, uygulanabilir tavsiye.
+   - "example_comment_ids": Bu temayı en iyi temsil eden en az {example_min}, en fazla {example_max} adet yorumun sayısal ID'si.
+
+5. "overall_summary" (YÖNETİCİ ÖZETİ):
+   - 3-4 cümlelik, gerçek yüzdelere ve spesifik bulgulara dayanan bir yönetici özeti yaz.
+   - Varsa dikkat çeken bir çelişkiyi, öne çıkan dakikaları veya sürpriz izleyici tepkisini mutlaka vurgula.
+
+6. "top_recommendation" (BİR SONRAKİ VİDEO İÇİN KRİTİK EYLEM):
+   - "insight": EN AZ İKİ SAYISAL REFERANS İÇERMELİ (kategori yüzdesi ve yaklaşık yorum adedi: örn: "Yorumların %24'ü (~120 yorum) fon müziğinin konuşma sesini bastırdığını belirtiyor").
+   - "action": Videonun tam neresinde, ne yapılacağını söyleyen tek nokta atışı somut adım (örn: "Kurgu aşamasında 02:00 sonrasındaki fon müziği seviyesini konuşma sesinin en az 6dB altına çekin").
+   - "expected_impact": Verideki sayıya bağlanmış, hangi metriğin nasıl etkileneceğini açıklayan kazanım.
+
+7. Yanıtı SADECE ve SADECE aşağıdaki JSON şemasında döndür. JSON harici hiçbir metin ekleme.
 
 İSTENEN JSON ŞEMASI:
 {{
@@ -122,34 +271,31 @@ ANALİZ YÖNERGELERİ:
       "topic": "konu adı",
       "percent": 0,
       "sentiment": "positive",
-      "insight": "içerik üreticisine aksiyon alınabilir tavsiye",
+      "insight": "içerik üreticisine somut aksiyon tavsiyesi",
       "example_comment_ids": [3, 17, 42]
     }}
   ],
-  "overall_summary": "3-4 cümlelik, yüzdelere dayanan, çelişki/sürpriz bulguyu vurgulayan yönetici özeti",
+  "overall_summary": "3-4 cümlelik, somut bulgulara ve yüzdelere dayanan yönetici özeti",
   "top_recommendation": {{
-    "insight": "en az iki sayısal referans (yüzde + yaklaşık yorum sayısı) içeren tespit",
-    "action": "videonun neresinde, tam olarak ne yapılacağını söyleyen tek nokta atışı adım",
+    "insight": "en az iki sayısal referans (yüzde + yaklaşık yorum adedi) içeren tespit",
+    "action": "videonun neresinde ne yapılacağını söyleyen tek nokta atışı somut adım",
     "expected_impact": "verideki sayıya bağlanmış, hangi metriğin nasıl etkileneceğini açıklayan kazanım"
   }}
 }}
 
-SON KONTROL (cevabını göndermeden önce):
-1. topics dizisindeki kategori sayısını SAY. Eğer {min_topics}'den azsa, en yüksek yüzdeli kategoriyi anlamlı iki alt kategoriye bölerek sayıyı {min_topics}'e tamamla. {max_topics}'den fazlaysa en küçük iki kategoriyi birleştir.
-2. Her topic.sentiment değerinin yalnızca "positive", "negative" veya "neutral" olduğunu doğrula.
-3. top_recommendation'ın üç alanının da (insight, action, expected_impact) dolu olduğunu doğrula.
-4. top_recommendation.insight içinde EN AZ İKİ sayısal veri (yüzde ve yaklaşık yorum adedi) geçtiğini doğrula; yoksa ekle.
-5. top_recommendation.action'ın tek bir somut adım olduğunu ve videonun hangi aşamasına ait olduğunu belirttiğini doğrula; belirsizse somutlaştır.
+SON KONTROL:
+1. topics sayısının {min_topics} ile {max_topics} arasında olduğunu doğrula.
+2. Jenerik yuvarlak lafların bulunmadığından ve ironik sitemlerin negative olarak sınıflandırıldığından emin ol.
+3. top_recommendation alanının 3 parçasının da (insight, action, expected_impact) eksiksiz dolu olduğunu doğrula.
+4. top_recommendation.insight içinde EN AZ İKİ sayısal veri geçtiğini doğrula.
+5. top_recommendation.action'ın videonun neresinde ne yapılacağını söyleyen tek somut adım olduğunu doğrula.
 """
 
     try:
-        response = model.generate_content(
-            prompt,
-            generation_config={"response_mime_type": "application/json"}
-        )
+        raw_text = _generate_with_retry_sync(prompt, api_key)
         
         # Yanıttan markdown kod bloklarını temizleme (güvenlik önlemi)
-        text = response.text.strip()
+        text = raw_text.strip()
         if text.startswith("```json"):
             text = text[7:]
         if text.endswith("```"):
@@ -321,16 +467,10 @@ ANALİZ KURALLARI:
 }}
 """
 
-    genai.configure(api_key=resolved_api_key)
-    model = genai.GenerativeModel("gemini-2.5-flash")
-
     try:
-        response = await model.generate_content_async(
-            prompt,
-            generation_config={"response_mime_type": "application/json"}
-        )
+        raw_text = await _generate_with_retry_async(prompt, resolved_api_key)
 
-        text = response.text.strip()
+        text = raw_text.strip()
         if text.startswith("```json"):
             text = text[7:]
         if text.endswith("```"):

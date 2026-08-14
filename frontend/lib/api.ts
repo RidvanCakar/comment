@@ -256,3 +256,106 @@ export async function analyzeChannel(
   });
 }
 
+export async function requestPasswordReset(email: string): Promise<{ message: string }> {
+  return apiRequest<{ message: string }>("/auth/forgot-password", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}
+
+export async function resetPassword(
+  token: string,
+  newPassword: string,
+): Promise<{ message: string }> {
+  return apiRequest<{ message: string }>("/auth/reset-password", {
+    method: "POST",
+    body: JSON.stringify({
+      token,
+      new_password: newPassword,
+    }),
+  });
+}
+
+export type FeedbackCategory = "feature_request" | "bug_report" | "improvement" | "general";
+export type FeedbackStatus = "pending" | "in_review" | "planned" | "completed" | "rejected";
+
+export interface FeedbackItem {
+  id: number;
+  user_id: number;
+  category: FeedbackCategory | string;
+  title: string;
+  message: string;
+  status: FeedbackStatus | string;
+  admin_notes?: string | null;
+  created_at: string;
+  updated_at: string;
+  user?: {
+    id: number;
+    email: string;
+    full_name: string;
+    role: string;
+  };
+}
+
+export interface AdminFeedbackListResponse {
+  total: number;
+  limit: number;
+  offset: number;
+  feedbacks: FeedbackItem[];
+}
+
+export async function submitFeedback(data: {
+  category: string;
+  title: string;
+  message: string;
+}): Promise<{ message: string; feedback: FeedbackItem }> {
+  return apiRequest<{ message: string; feedback: FeedbackItem }>("/feedback", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function getMyFeedbacks(): Promise<{ feedbacks: FeedbackItem[] }> {
+  return apiRequest<{ feedbacks: FeedbackItem[] }>("/feedback/my", {
+    method: "GET",
+  });
+}
+
+export async function getAdminFeedbacks(params?: {
+  category?: string;
+  status?: string;
+  search?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<AdminFeedbackListResponse> {
+  const query = new URLSearchParams();
+  if (params?.category) query.set("category", params.category);
+  if (params?.status) query.set("status", params.status);
+  if (params?.search) query.set("search", params.search);
+  if (params?.limit) query.set("limit", String(params.limit));
+  if (params?.offset) query.set("offset", String(params.offset));
+
+  const qs = query.toString();
+  return apiRequest<AdminFeedbackListResponse>(`/admin/feedbacks${qs ? `?${qs}` : ""}`, {
+    method: "GET",
+  });
+}
+
+export async function updateAdminFeedback(
+  feedbackId: number,
+  data: { status?: string; admin_notes?: string },
+): Promise<{ message: string; feedback: FeedbackItem }> {
+  return apiRequest<{ message: string; feedback: FeedbackItem }>(`/admin/feedbacks/${feedbackId}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteAdminFeedback(
+  feedbackId: number,
+): Promise<{ message: string }> {
+  return apiRequest<{ message: string }>(`/admin/feedbacks/${feedbackId}`, {
+    method: "DELETE",
+  });
+}
+

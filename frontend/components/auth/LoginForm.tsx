@@ -46,8 +46,16 @@ export default function LoginForm() {
             disabled={submitting}
           />
         </label>
-        <label className="block text-sm font-semibold">
-          Şifre
+        <div>
+          <div className="flex items-center justify-between pb-1">
+            <label className="text-sm font-semibold">Şifre</label>
+            <Link
+              href="/forgot-password"
+              className="text-xs font-semibold text-accent-record hover:underline"
+            >
+              Şifremi unuttum
+            </Link>
+          </div>
           <input
             className={inputClass}
             type="password"
@@ -57,7 +65,7 @@ export default function LoginForm() {
             onChange={(e) => setPassword(e.target.value)}
             disabled={submitting}
           />
-        </label>
+        </div>
         {error && (
           <p
             role="alert"

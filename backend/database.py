@@ -74,6 +74,8 @@ class User(Base):
     is_verified = Column(Boolean, nullable=False, default=False, index=True)
     verify_token = Column(String(255), nullable=True, unique=True, index=True)
     verify_token_expires_at = Column(DateTime, nullable=True)
+    reset_token = Column(String(255), nullable=True, unique=True, index=True)
+    reset_token_expires_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(
         DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
@@ -85,6 +87,29 @@ class User(Base):
     channel_analyses = relationship(
         "ChannelAnalysis", back_populates="user", cascade="all, delete-orphan"
     )
+    feedbacks = relationship(
+        "Feedback", back_populates="user", cascade="all, delete-orphan"
+    )
+
+
+class Feedback(Base):
+    __tablename__ = "feedbacks"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    category = Column(String(50), nullable=False, default="general", index=True)
+    title = Column(String(200), nullable=False)
+    message = Column(Text, nullable=False)
+    status = Column(String(30), nullable=False, default="pending", index=True)
+    admin_notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(
+        DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+    user = relationship("User", back_populates="feedbacks")
 
 
 class AuthSession(Base):
@@ -218,6 +243,25 @@ def _migration_7(bind: Engine) -> None:
     ChannelAnalysis.__table__.create(bind=bind, checkfirst=True)
 
 
+def _migration_8(bind: Engine) -> None:
+    """Kullanıcı şifre sıfırlama (forgot password) alanlarını ekler."""
+    columns = {column["name"] for column in inspect(bind).get_columns("users")}
+    with bind.begin() as connection:
+        if "reset_token" not in columns:
+            connection.execute(
+                text("ALTER TABLE users ADD COLUMN reset_token VARCHAR(255)")
+            )
+        if "reset_token_expires_at" not in columns:
+            connection.execute(
+                text("ALTER TABLE users ADD COLUMN reset_token_expires_at DATETIME")
+            )
+
+
+def _migration_9(bind: Engine) -> None:
+    """Kullanıcı geri bildirim ve öneri (Feedback) tablosunu ekler."""
+    Feedback.__table__.create(bind=bind, checkfirst=True)
+
+
 MIGRATIONS = (
     (1, "video_analysis_cache_column", _migration_1),
     (2, "users_and_auth_sessions", _migration_2),
@@ -226,6 +270,8 @@ MIGRATIONS = (
     (5, "user_email_verification", _migration_5),
     (6, "guest_device_ip_tracking", _migration_6),
     (7, "channel_analysis_table", _migration_7),
+    (8, "user_password_reset", _migration_8),
+    (9, "feedback_table", _migration_9),
 )
 
 
