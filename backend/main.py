@@ -30,7 +30,12 @@ from youtube_service import (
     get_channel_latest_videos,
     resolve_channel_id,
 )
-from gemini_service import analyze_comments, analyze_channel_insights
+from gemini_service import (
+    analyze_comments,
+    analyze_channel_insights,
+    has_valid_gemini_api_key,
+    get_gemini_api_keys,
+)
 from comment_insights import enrich_analysis_with_comment_insights, topic_example_limit
 from auth import admin_router, auth_router, users_router
 from feedback import feedback_router, admin_feedback_router
@@ -54,11 +59,14 @@ YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 # API Anahtarlarının kontrolü
-if not YOUTUBE_API_KEY or not GEMINI_API_KEY:
+if not YOUTUBE_API_KEY or not has_valid_gemini_api_key():
     print("\n" + "="*80)
     print("UYARI: YOUTUBE_API_KEY veya GEMINI_API_KEY .env dosyasında eksik!")
     print("Lütfen 'backend/.env' dosyasını oluşturup API anahtarlarını girin.")
     print("="*80 + "\n")
+else:
+    active_keys_count = len(get_gemini_api_keys())
+    print(f"[Gemini Key Havuzu] {active_keys_count} adet aktif Gemini API anahtarı yüklendi.")
 
 # Kota ve maliyet sınırlandırması için sabit yorum sayısı
 MAX_COMMENTS = 1500
@@ -211,7 +219,7 @@ def analyze(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Sistem yapılandırma hatası: YouTube API anahtarı geçerli değil veya eksik."
         )
-    if not GEMINI_API_KEY or GEMINI_API_KEY.startswith("YOUR_"):
+    if not has_valid_gemini_api_key():
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Sistem yapılandırma hatası: Gemini API anahtarı geçerli değil veya eksik."
@@ -432,7 +440,7 @@ async def analyze_channel(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Sistem yapılandırma hatası: YouTube API anahtarı geçerli değil veya eksik."
         )
-    if not GEMINI_API_KEY or GEMINI_API_KEY.startswith("YOUR_"):
+    if not has_valid_gemini_api_key():
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Sistem yapılandırma hatası: Gemini API anahtarı geçerli değil veya eksik."
@@ -465,7 +473,7 @@ async def analyze_channel(
     if not latest_videos:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Kanalda analiz edilecek video bulunamadı veya kanal gizli.",
+            detail="Kanalda analiz edilecek normal (uzun) video bulunamadı. Kanal sadece Shorts yayınlıyor olabilir.",
         )
 
     # 3. Her videonun tekil analizini paralel olarak yap veya önbellekten al

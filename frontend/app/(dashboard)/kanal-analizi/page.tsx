@@ -141,8 +141,8 @@ export default function ChannelAnalysisPage() {
               Kanal Geneli Toplu Analiz
             </h1>
           </div>
-          <p className="mt-1 text-sm text-text-muted">
-            YouTube kanalınızın son 5 videosunu aynı anda tarayarak genel kanal sağlığını, kitle eğilimlerini ve kronik sorunları yapay zeka ile sentezleyin.
+          <p className="mt-2 max-w-2xl text-sm sm:text-base text-text-muted">
+            YouTube kanalınızın son 5 normal (uzun) videosunu tarayarak genel kanal sağlığını, kitle eğilimlerini ve kronik sorunları yapay zeka ile sentezleyin (Shorts videoları otomatik olarak elenir).
           </p>
         </div>
 
@@ -221,7 +221,7 @@ export default function ChannelAnalysisPage() {
             </label>
 
             <span className="font-mono">
-              ⚡ Son 5 video taranır • Maliyet: <strong>3 Kredi</strong>
+              ⚡ Son 5 normal video taranır (Shorts hariç) • Maliyet: <strong>3 Kredi</strong>
             </span>
           </div>
 

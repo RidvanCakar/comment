@@ -223,3 +223,86 @@ def test_channel_analysis_credits(db_session):
     charge_user_for_channel_analysis(db_session, admin_user, None)
     assert admin_user.analysis_credits == 0
 
+
+def test_parse_iso8601_duration():
+    from youtube_service import parse_iso8601_duration
+    assert parse_iso8601_duration("PT30S") == 30
+    assert parse_iso8601_duration("PT1M15S") == 75
+    assert parse_iso8601_duration("PT1H2M30S") == 3750
+    assert parse_iso8601_duration("") == 0
+    assert parse_iso8601_duration(None) == 0
+
+
+def test_is_video_short_rules():
+    from youtube_service import is_video_short
+    # 1. Başlıkta #shorts etiketi olan her zaman shorttur
+    assert is_video_short("vid1", title="Komik Anlar #shorts", duration_seconds=120) is True
+    assert is_video_short("vid2", title="Eğlenceli Video", description="Takip et #short", duration_seconds=300) is True
+
+    # 2. Süresi 60 saniyeden kısa olanlar shorttur
+    assert is_video_short("vid3", title="Kısa Video", duration_seconds=45) is True
+
+    # 3. Süresi 180 saniyeden uzun olanlar kesinlikle normal videodur
+    assert is_video_short("vid4", title="Detaylı İnceleme", duration_seconds=600) is False
+
+
+def test_get_channel_latest_videos_filters_shorts():
+    from youtube_service import get_channel_latest_videos
+
+    mock_youtube = MagicMock()
+    mock_youtube.channels().list().execute.return_value = {
+        "items": [
+            {
+                "id": "UC123",
+                "snippet": {"title": "Test Channel"},
+                "contentDetails": {"relatedPlaylists": {"uploads": "UU123"}}
+            }
+        ]
+    }
+
+    # Uploads playlistinde 1 shorts, 1 normal video olsun
+    mock_youtube.playlistItems().list().execute.return_value = {
+        "items": [
+            {
+                "snippet": {
+                    "resourceId": {"videoId": "short_vid"},
+                    "title": "Kısa Video #shorts",
+                    "publishedAt": "2026-08-14T10:00:00Z",
+                    "thumbnails": {"high": {"url": "https://img.youtube.com/thumb1.jpg"}}
+                }
+            },
+            {
+                "snippet": {
+                    "resourceId": {"videoId": "long_vid"},
+                    "title": "20 Dakikalık Kapsamlı İnceleme",
+                    "publishedAt": "2026-08-12T10:00:00Z",
+                    "thumbnails": {"high": {"url": "https://img.youtube.com/thumb2.jpg"}}
+                }
+            }
+        ]
+    }
+
+    # Video list sorgusunda süreleri dönelim
+    mock_youtube.videos().list().execute.return_value = {
+        "items": [
+            {
+                "id": "short_vid",
+                "snippet": {"title": "Kısa Video #shorts", "description": ""},
+                "contentDetails": {"duration": "PT45S"}
+            },
+            {
+                "id": "long_vid",
+                "snippet": {"title": "20 Dakikalık Kapsamlı İnceleme", "description": ""},
+                "contentDetails": {"duration": "PT20M"}
+            }
+        ]
+    }
+
+    with patch("youtube_service.build", return_value=mock_youtube):
+        videos = get_channel_latest_videos("UC123", limit=5, api_key="fake_key", exclude_shorts=True)
+        # Sadece long_vid dönmeli, short_vid elenmeli
+        assert len(videos) == 1
+        assert videos[0]["video_id"] == "long_vid"
+        assert videos[0]["title"] == "20 Dakikalık Kapsamlı İnceleme"
+
+

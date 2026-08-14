@@ -228,13 +228,90 @@ def resolve_channel_id(youtube, channel_url_or_id: str) -> tuple[str, str, str]:
 
 
 
+def parse_iso8601_duration(duration_str: str) -> int:
+    """ISO 8601 süre formatını (ör: PT15M33S, PT45S, PT1H2M) saniyeye çevirir."""
+    if not duration_str:
+        return 0
+    match = re.match(
+        r'P(?:(?P<days>\d+)D)?(?:T(?:(?P<hours>\d+)H)?(?:(?P<minutes>\d+)M)?(?:(?P<seconds>\d+)S)?)?',
+        duration_str
+    )
+    if not match:
+        return 0
+    parts = match.groupdict()
+    days = int(parts.get('days') or 0)
+    hours = int(parts.get('hours') or 0)
+    minutes = int(parts.get('minutes') or 0)
+    seconds = int(parts.get('seconds') or 0)
+    return days * 86400 + hours * 3600 + minutes * 60 + seconds
+
+
+def is_youtube_short_url(video_id: str) -> bool:
+    """
+    YouTube /shorts/{video_id} uç noktasına yönlendirmesiz istek atarak
+    videonun Shorts formatında olup olmadığını test eder.
+    Normal videolar /watch?v= formatına yönlendirilir (301/302/303).
+    Shorts videolar ise doğrudan 200 OK yanıtı verir.
+    """
+    import urllib.request
+    import urllib.error
+
+    url = f"https://www.youtube.com/shorts/{video_id}"
+    class NoRedirect(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, req, fp, code, msg, headers, newurl):
+            return None
+
+    opener = urllib.request.build_opener(NoRedirect)
+    req = urllib.request.Request(
+        url,
+        headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+    )
+    try:
+        res = opener.open(req, timeout=2.5)
+        return res.status == 200
+    except urllib.error.HTTPError as e:
+        if e.code in (301, 302, 303, 307, 308):
+            return False
+        return False
+    except Exception:
+        return False
+
+
+def is_video_short(video_id: str, title: str = "", description: str = "", duration_seconds: int = 0) -> bool:
+    """
+    Bir videonun YouTube Shorts olup olmadığını belirler:
+    1. Başlıkta veya açıklamada #shorts / #short etiketi varsa -> Short
+    2. Süresi 60 saniye veya daha kısaysa (ve > 0) -> Short
+    3. Süresi 180 saniye veya daha kısaysa ve /shorts/ kontrolü 200 dönüyorsa -> Short
+    4. Süresi > 180 saniye ise -> Normal (Long-form) video
+    """
+    title_lower = (title or "").lower()
+    desc_lower = (description or "").lower()
+
+    if "#shorts" in title_lower or "#short" in title_lower or "#shorts" in desc_lower or "#short" in desc_lower:
+        return True
+
+    if 0 < duration_seconds <= 60:
+        return True
+
+    if 60 < duration_seconds <= 180:
+        return is_youtube_short_url(video_id)
+
+    if duration_seconds > 180:
+        return False
+
+    # Süre bilgisi 0 ise URL yönlendirmesini kontrol et
+    return is_youtube_short_url(video_id)
+
+
 def get_channel_latest_videos(
     channel_url_or_id: str,
     limit: int = 5,
-    api_key: str | None = None
+    api_key: str | None = None,
+    exclude_shorts: bool = True
 ) -> list[dict]:
     """
-    Kanalın en son yayınlanan `limit` kadar (varsayılan 5) videosunun
+    Kanalın en son yayınlanan `limit` kadar (varsayılan 5) NORMAL (Shorts olmayan) videosunun
     video_id, title, published_at, thumbnail_url bilgilerini döndürür.
     """
     import os
@@ -246,47 +323,114 @@ def get_channel_latest_videos(
         youtube = build("youtube", "v3", developerKey=resolved_api_key)
         channel_id, channel_title, uploads_playlist_id = resolve_channel_id(youtube, channel_url_or_id)
 
-        # Uploads playlist üzerinden son videoları çek (1 kota birimi maliyeti)
-        playlist_request = youtube.playlistItems().list(
-            part="snippet",
-            playlistId=uploads_playlist_id,
-            maxResults=min(50, max(limit, 10))
-        )
-        playlist_response = playlist_request.execute()
-        items = playlist_response.get("items", [])
-
         videos = []
-        for item in items:
-            snippet = item.get("snippet", {})
-            vid_id = snippet.get("resourceId", {}).get("videoId")
-            title = snippet.get("title", "")
+        next_page_token = None
+        max_pages_to_scan = 10  # En fazla 10 sayfa (500 video) tara
 
-            # Silinmiş veya gizli videoları atla
-            if not vid_id or title in ("Private video", "Deleted video"):
+        for _ in range(max_pages_to_scan):
+            # Uploads playlist üzerinden videoları çek (maksimum 50 adet)
+            playlist_kwargs = {
+                "part": "snippet",
+                "playlistId": uploads_playlist_id,
+                "maxResults": 50
+            }
+            if next_page_token:
+                playlist_kwargs["pageToken"] = next_page_token
+
+            playlist_request = youtube.playlistItems().list(**playlist_kwargs)
+            playlist_response = playlist_request.execute()
+            items = playlist_response.get("items", [])
+            if not items:
+                break
+
+            candidate_vids = []
+            candidate_map = {}
+            for item in items:
+                snippet = item.get("snippet", {})
+                vid_id = snippet.get("resourceId", {}).get("videoId")
+                title = snippet.get("title", "")
+
+                # Silinmiş veya gizli videoları atla
+                if not vid_id or title in ("Private video", "Deleted video"):
+                    continue
+
+                candidate_vids.append(vid_id)
+                thumbnails = snippet.get("thumbnails", {})
+                thumb_url = (
+                    thumbnails.get("maxres", {}).get("url")
+                    or thumbnails.get("high", {}).get("url")
+                    or thumbnails.get("medium", {}).get("url")
+                    or thumbnails.get("default", {}).get("url")
+                    or f"https://i.ytimg.com/vi/{vid_id}/hqdefault.jpg"
+                )
+                candidate_map[vid_id] = {
+                    "video_id": vid_id,
+                    "title": title,
+                    "description": snippet.get("description", ""),
+                    "published_at": snippet.get("publishedAt", ""),
+                    "thumbnail_url": thumb_url,
+                    "channel_id": channel_id,
+                    "channel_title": channel_title,
+                }
+
+            if not candidate_vids:
+                next_page_token = playlist_response.get("nextPageToken")
+                if not next_page_token:
+                    break
                 continue
 
-            thumbnails = snippet.get("thumbnails", {})
-            thumb_url = (
-                thumbnails.get("maxres", {}).get("url")
-                or thumbnails.get("high", {}).get("url")
-                or thumbnails.get("medium", {}).get("url")
-                or thumbnails.get("default", {}).get("url")
-                or f"https://i.ytimg.com/vi/{vid_id}/hqdefault.jpg"
-            )
+            # Videoların süre ve detaylarını tek bir toplu API çağrısıyla çek
+            duration_map = {}
+            try:
+                video_details_req = youtube.videos().list(
+                    part="snippet,contentDetails",
+                    id=",".join(candidate_vids[:50])
+                )
+                video_details_resp = video_details_req.execute()
+                for v_item in video_details_resp.get("items", []):
+                    v_id = v_item.get("id")
+                    c_details = v_item.get("contentDetails", {})
+                    dur_iso = c_details.get("duration", "")
+                    duration_map[v_id] = parse_iso8601_duration(dur_iso)
+                    if "snippet" in v_item and v_id in candidate_map:
+                        candidate_map[v_id]["description"] = v_item["snippet"].get("description", "")
+            except Exception:
+                # Video list API çağrısında hata olursa fallback olarak devam et
+                pass
 
-            videos.append({
-                "video_id": vid_id,
-                "title": title,
-                "published_at": snippet.get("publishedAt", ""),
-                "thumbnail_url": thumb_url,
-                "channel_id": channel_id,
-                "channel_title": channel_title
-            })
+            for vid_id in candidate_vids:
+                item_info = candidate_map[vid_id]
+                dur_sec = duration_map.get(vid_id, 0)
+
+                if exclude_shorts:
+                    if is_video_short(
+                        video_id=vid_id,
+                        title=item_info["title"],
+                        description=item_info.get("description", ""),
+                        duration_seconds=dur_sec
+                    ):
+                        continue
+
+                videos.append({
+                    "video_id": vid_id,
+                    "title": item_info["title"],
+                    "published_at": item_info["published_at"],
+                    "thumbnail_url": item_info["thumbnail_url"],
+                    "channel_id": channel_id,
+                    "channel_title": channel_title,
+                })
+
+                if len(videos) >= limit:
+                    break
 
             if len(videos) >= limit:
                 break
 
-        return videos
+            next_page_token = playlist_response.get("nextPageToken")
+            if not next_page_token:
+                break
+
+        return videos[:limit]
     except HttpError as e:
         status_code = e.resp.status if hasattr(e, "resp") else 500
         raise RuntimeError(f"YouTube API Hatası (Kod: {status_code}): {e.reason}")

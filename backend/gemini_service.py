@@ -7,7 +7,7 @@ from typing import Dict, Any, List
 
 from comment_insights import topic_example_range
 
-FALLBACK_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
+FALLBACK_MODELS = ["gemini-2.5-flash", "gemini-flash-latest"]
 
 
 def is_junk_comment(comment: str) -> bool:
@@ -116,63 +116,208 @@ def select_richest_comments(comments: List[str], max_sample: int = 150) -> List[
     return scored[:max_sample]
 
 
-def _generate_with_retry_sync(prompt: str, api_key: str) -> str:
-    genai.configure(api_key=api_key)
-    last_error = None
+import os
+import threading
 
-    for model_name in FALLBACK_MODELS:
+_KEY_ROTATION_LOCK = threading.Lock()
+_CURRENT_KEY_INDEX = 0
+
+PLACEHOLDER_KEY_PATTERNS = {
+    "your_key_1_here", "your_key_2_here", "your_key_3_here", "your_key_4_here",
+    "your_key_5_here", "your_key_6_here", "your_key_7_here", "your_key_8_here",
+    "your_key_9_here", "your_key_10_here", "your_gemini_api_key_here", "your_key_here",
+    "your_gemini_api_key"
+}
+
+
+def mask_api_key(key: str) -> str:
+    """API anahtarının sadece başını ve sonunu göstererek güvenli maskeleme yapar."""
+    if not key or len(key) <= 8:
+        return "***"
+    return f"{key[:4]}...{key[-4:]}"
+
+
+def get_gemini_api_keys() -> List[str]:
+    """
+    Tüm tanımlı ve geçerli Gemini API anahtarlarını toplar ve listeler:
+    1. GEMINI_API_KEY_1 .. GEMINI_API_KEY_20 (numaralandırılmış)
+    2. GEMINI_API_KEYS (virgülle veya noktalı virgülle ayrılmış liste)
+    3. GEMINI_API_KEY (klasik tekil anahtar)
+    """
+    keys: List[str] = []
+
+    # 1. Numaralandırılmış anahtarları tara (1'den 20'ye kadar)
+    for i in range(1, 21):
+        k = os.getenv(f"GEMINI_API_KEY_{i}", "").strip()
+        if k and k.lower() not in PLACEHOLDER_KEY_PATTERNS and not k.startswith("your_key_"):
+            if k not in keys:
+                keys.append(k)
+
+    # 2. Virgülle veya noktalı virgülle ayrılmış liste varsa ekle
+    multi_keys_raw = os.getenv("GEMINI_API_KEYS", "").strip()
+    if multi_keys_raw:
+        for part in re.split(r"[,;]+", multi_keys_raw):
+            clean_part = part.strip()
+            if clean_part and clean_part.lower() not in PLACEHOLDER_KEY_PATTERNS and not clean_part.startswith("your_key_"):
+                if clean_part not in keys:
+                    keys.append(clean_part)
+
+    # 3. Klasik tekil GEMINI_API_KEY varsa ekle
+    legacy_key = os.getenv("GEMINI_API_KEY", "").strip()
+    if legacy_key and legacy_key.lower() not in PLACEHOLDER_KEY_PATTERNS and not legacy_key.startswith("YOUR_"):
+        if legacy_key not in keys:
+            keys.append(legacy_key)
+
+    return keys
+
+
+def has_valid_gemini_api_key() -> bool:
+    """Sistemde tanımlı en az 1 geçerli Gemini API anahtarı olup olmadığını bildirir."""
+    return len(get_gemini_api_keys()) > 0
+
+
+def get_ordered_api_keys(preferred_key: str | None = None) -> List[str]:
+    """
+    Tüm geçerli API anahtarlarını rotasyon sırasına göre döndürür.
+    Eğer fonksiyona özel preferred_key verilmişse, onu listenin başına koyar.
+    """
+    all_keys = get_gemini_api_keys()
+
+    if preferred_key:
+        clean_pref = preferred_key.strip()
+        if clean_pref and clean_pref.lower() not in PLACEHOLDER_KEY_PATTERNS and not clean_pref.startswith("YOUR_"):
+            if clean_pref in all_keys:
+                idx = all_keys.index(clean_pref)
+                return all_keys[idx:] + all_keys[:idx]
+            else:
+                return [clean_pref] + all_keys
+
+    if not all_keys:
+        return []
+
+    global _CURRENT_KEY_INDEX
+    with _KEY_ROTATION_LOCK:
+        start_idx = _CURRENT_KEY_INDEX % len(all_keys)
+        return all_keys[start_idx:] + all_keys[:start_idx]
+
+
+def rotate_to_next_key() -> None:
+    """Mevcut anahtarı bir sonrakine kaydırır."""
+    global _CURRENT_KEY_INDEX
+    all_keys = get_gemini_api_keys()
+    if not all_keys:
+        return
+    with _KEY_ROTATION_LOCK:
+        _CURRENT_KEY_INDEX = (_CURRENT_KEY_INDEX + 1) % len(all_keys)
+
+
+def is_quota_or_rate_limit_error(exc: Exception) -> bool:
+    """Hatanın kota aşımı, hız limiti veya geçici kaynak yetersizliği olup olmadığını tespit eder."""
+    err_str = str(exc).lower()
+    return any(keyword in err_str for keyword in (
+        "429",
+        "quota",
+        "resourceexhausted",
+        "resource_exhausted",
+        "ratelimit",
+        "rate_limit",
+        "too many requests",
+        "exceeded",
+        "exhausted"
+    ))
+
+
+def _generate_with_retry_sync(prompt: str, api_key: str | None = None) -> str:
+    keys = get_ordered_api_keys(api_key)
+    if not keys:
+        raise ValueError("Kullanılabilir geçerli Gemini API anahtarı bulunamadı. Lütfen .env dosyasında GEMINI_API_KEY_1 veya GEMINI_API_KEY tanımlayın.")
+
+    last_error = None
+    for key_idx, current_key in enumerate(keys):
+        masked = mask_api_key(current_key)
         try:
-            model = genai.GenerativeModel(model_name)
-            response = model.generate_content(
-                prompt,
-                generation_config={"response_mime_type": "application/json"},
-            )
-            if response and response.text:
-                return response.text.strip()
+            genai.configure(api_key=current_key)
         except Exception as e:
-            last_error = e
-            err_str = str(e).lower()
-            if "429" in err_str or "quota" in err_str or "resourceexhausted" in err_str:
-                time.sleep(2)
-                continue
-            raise e
+            print(f"[Gemini Key Config Hatası] Key {masked}: {e}")
+            continue
+
+        for model_name in FALLBACK_MODELS:
+            try:
+                model = genai.GenerativeModel(model_name)
+                response = model.generate_content(
+                    prompt,
+                    generation_config={"response_mime_type": "application/json"},
+                )
+                if response and response.text:
+                    return response.text.strip()
+            except Exception as e:
+                last_error = e
+                if is_quota_or_rate_limit_error(e):
+                    print(f"[GEMINI ROTASYON] Model '{model_name}' ve Anahtar '{masked}' için kota/istek sınırı aşıldı.")
+                    continue
+                else:
+                    continue
+
+        rotate_to_next_key()
+        if key_idx < len(keys) - 1:
+            next_masked = mask_api_key(keys[key_idx + 1])
+            print(f"[GEMINI ROTASYON] Anahtar '{masked}' tükendi. Sıradaki anahtara ({next_masked}) geçiliyor...")
+            time.sleep(0.5)
 
     if last_error:
         raise last_error
-    raise RuntimeError("Gemini modelinden yanıt alınamadı.")
+    raise RuntimeError("Tüm Gemini API anahtarları ve modelleri denendi ancak yanıt alınamadı.")
 
 
-async def _generate_with_retry_async(prompt: str, api_key: str) -> str:
-    genai.configure(api_key=api_key)
+async def _generate_with_retry_async(prompt: str, api_key: str | None = None) -> str:
+    keys = get_ordered_api_keys(api_key)
+    if not keys:
+        raise ValueError("Kullanılabilir geçerli Gemini API anahtarı bulunamadı. Lütfen .env dosyasında GEMINI_API_KEY_1 veya GEMINI_API_KEY tanımlayın.")
+
     last_error = None
-
-    for model_name in FALLBACK_MODELS:
+    for key_idx, current_key in enumerate(keys):
+        masked = mask_api_key(current_key)
         try:
-            model = genai.GenerativeModel(model_name)
-            response = await model.generate_content_async(
-                prompt,
-                generation_config={"response_mime_type": "application/json"},
-            )
-            if response and response.text:
-                return response.text.strip()
+            genai.configure(api_key=current_key)
         except Exception as e:
-            last_error = e
-            err_str = str(e).lower()
-            if "429" in err_str or "quota" in err_str or "resourceexhausted" in err_str:
-                await asyncio.sleep(2)
-                continue
-            raise e
+            print(f"[Gemini Key Config Hatası] Key {masked}: {e}")
+            continue
+
+        for model_name in FALLBACK_MODELS:
+            try:
+                model = genai.GenerativeModel(model_name)
+                response = await model.generate_content_async(
+                    prompt,
+                    generation_config={"response_mime_type": "application/json"},
+                )
+                if response and response.text:
+                    return response.text.strip()
+            except Exception as e:
+                last_error = e
+                if is_quota_or_rate_limit_error(e):
+                    print(f"[GEMINI ROTASYON] Model '{model_name}' ve Anahtar '{masked}' için kota/istek sınırı aşıldı.")
+                    continue
+                else:
+                    continue
+
+        rotate_to_next_key()
+        if key_idx < len(keys) - 1:
+            next_masked = mask_api_key(keys[key_idx + 1])
+            print(f"[GEMINI ROTASYON] Anahtar '{masked}' tükendi. Sıradaki anahtara ({next_masked}) geçiliyor...")
+            await asyncio.sleep(0.5)
 
     if last_error:
         raise last_error
-    raise RuntimeError("Gemini modelinden yanıt alınamadı.")
+    raise RuntimeError("Tüm Gemini API anahtarları ve modelleri denendi ancak yanıt alınamadı.")
 
 
-def analyze_comments(api_key: str, comments: List[str]) -> Dict[str, Any]:
+def analyze_comments(api_key: str | None = None, comments: List[str] | None = None) -> Dict[str, Any]:
     """
     Tüm yorumları filtrelenmiş ve zenginleştirilmiş tek bir Gemini isteğinde analiz ettirip, JSON formatında yapılandırılmış sonuç döndürür.
+    Çoklu API anahtarı rotasyonunu ve model yedeklemesini otomatik yönetir.
     """
-    if not api_key:
+    resolved_keys = get_ordered_api_keys(api_key)
+    if not resolved_keys:
         raise ValueError("Gemini API anahtarı eksik.")
         
     if not comments:
@@ -367,9 +512,8 @@ async def analyze_channel_insights(video_reports: List[Dict[str, Any]], api_key:
     5 videonun bireysel analiz sonuçlarını girdi olarak alarak Gemini 2.5 Flash ile
     kanal geneli sağlık skoru, duygu trendi, tekrar eden sorunlar ve kanal stratejisi sentezi üretir.
     """
-    import os
-    resolved_api_key = api_key or os.getenv("GEMINI_API_KEY")
-    if not resolved_api_key:
+    resolved_keys = get_ordered_api_keys(api_key)
+    if not resolved_keys:
         raise ValueError("Gemini API anahtarı eksik.")
 
     if not video_reports:
@@ -468,7 +612,7 @@ ANALİZ KURALLARI:
 """
 
     try:
-        raw_text = await _generate_with_retry_async(prompt, resolved_api_key)
+        raw_text = await _generate_with_retry_async(prompt, api_key)
 
         text = raw_text.strip()
         if text.startswith("```json"):
