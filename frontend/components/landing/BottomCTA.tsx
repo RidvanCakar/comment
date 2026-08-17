@@ -20,7 +20,7 @@ export default function BottomCTA() {
               İzleyicinin ne istediğini tahmin etme. Gör.
             </h2>
             <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-text-muted sm:text-lg">
-              Bir YouTube bağlantısı yeterli. YorumAI, dağınık geri bildirimi
+              Bir YouTube bağlantısı yeterli. CommentLab, dağınık geri bildirimi
               içerik stratejine yön veren net bir rapora dönüştürsün.
             </p>
             <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">

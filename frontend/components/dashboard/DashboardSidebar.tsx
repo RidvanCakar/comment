@@ -6,6 +6,7 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import ThemeToggle from "@/components/ThemeToggle";
 import DashboardIcon from "@/components/dashboard/DashboardIcon";
 import { dashboardNavItems } from "@/lib/dashboard-nav";
+import BrandLogo from "@/components/BrandLogo";
 
 function isActive(pathname: string, href: string) {
   if (href === "/dashboard") return pathname === "/dashboard";
@@ -23,9 +24,8 @@ export default function DashboardSidebar({ onNavigate }: { onNavigate?: () => vo
   return (
     <aside className="flex h-full w-full flex-col border-r border-border-subtle bg-bg-surface">
       <div className="flex items-center justify-between gap-3 border-b border-border-subtle px-5 py-5">
-        <Link href="/dashboard" onClick={onNavigate} className="flex min-w-0 items-center gap-2.5 font-display text-lg font-extrabold">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-accent-record/30 bg-accent-record/10 text-accent-record">Y</span>
-          <span className="truncate">Yorum<span className="text-accent-record">AI</span></span>
+        <Link href="/dashboard" onClick={onNavigate} className="flex min-w-0 items-center">
+          <BrandLogo size="md" />
         </Link>
         <ThemeToggle />
       </div>

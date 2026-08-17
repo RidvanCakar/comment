@@ -2,6 +2,7 @@ import os
 import sys
 import json
 import asyncio
+from typing import Annotated
 from contextlib import asynccontextmanager
 from datetime import datetime
 from dotenv import load_dotenv
@@ -22,6 +23,9 @@ from database import (
     save_analysis,
     save_channel_analysis,
     get_latest_channel_analysis,
+    delete_video_analysis,
+    delete_channel_analysis,
+    User,
 )
 from youtube_service import (
     extract_video_id,
@@ -37,7 +41,7 @@ from gemini_service import (
     get_gemini_api_keys,
 )
 from comment_insights import enrich_analysis_with_comment_insights, topic_example_limit
-from auth import admin_router, auth_router, users_router
+from auth import admin_router, auth_router, users_router, require_admin
 from feedback import feedback_router, admin_feedback_router
 from config import settings
 from credits import (
@@ -81,8 +85,8 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(
-    title="YouTube Yorum Analiz Platformu API",
-    description="YouTube yorumlarını Gemini 2.5 Flash ile analiz eden FastAPI servisi.",
+    title="CommentLab API",
+    description="CommentLab - AI Audience Intelligence & Comment Analytics API powered by Gemini 2.5 Flash.",
     version="1.0.0",
     lifespan=lifespan
 )
@@ -609,6 +613,34 @@ async def analyze_channel(
         "analyzed_videos": video_reports,
         "quota": quota_snapshot(user, guest),
     }
+
+
+@app.delete("/admin/analyses/video/{video_id}", status_code=204)
+@app.delete("/api/admin/analyses/video/{video_id}", status_code=204)
+def delete_video_analysis_api(
+    video_id: str,
+    admin: Annotated[User, Depends(require_admin)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """
+    Yalnızca Admin: Belirtilen video analizini veritabanından kalıcı olarak siler.
+    """
+    delete_video_analysis(db, video_id)
+    return None
+
+
+@app.delete("/admin/analyses/channel/{channel_id}", status_code=204)
+@app.delete("/api/admin/analyses/channel/{channel_id}", status_code=204)
+def delete_channel_analysis_api(
+    channel_id: str,
+    admin: Annotated[User, Depends(require_admin)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """
+    Yalnızca Admin: Belirtilen kanal analizini veritabanından kalıcı olarak siler.
+    """
+    delete_channel_analysis(db, channel_id)
+    return None
 
 
 if __name__ == "__main__":

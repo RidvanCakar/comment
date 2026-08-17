@@ -2,7 +2,7 @@ import Link from "next/link";
 import { whatsappUrl } from "@/lib/support";
 
 const CREDIT_MESSAGE =
-  "Merhaba, YorumAI için ek analiz kredisi almak istiyorum.";
+  "Merhaba, CommentLab için ek analiz kredisi almak istiyorum.";
 
 interface CreditUpgradeButtonProps {
   isGuest?: boolean;

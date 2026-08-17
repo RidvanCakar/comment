@@ -14,9 +14,12 @@ import {
   findChannelAnalysisEntry,
 } from "@/lib/analysis-history";
 import ChannelHealthCard from "@/components/channel/ChannelHealthCard";
+import SilentKillersCard from "@/components/channel/SilentKillersCard";
+import HighRoiVideoIdeasCard from "@/components/channel/HighRoiVideoIdeasCard";
+import AudiencePersonaCard from "@/components/channel/AudiencePersonaCard";
+import CommercialValueCard from "@/components/channel/CommercialValueCard";
+import GrowthBlueprintCard from "@/components/channel/GrowthBlueprintCard";
 import SentimentTrendChart from "@/components/channel/SentimentTrendChart";
-import RecurringIssues from "@/components/channel/RecurringIssues";
-import ChannelStrategyCard from "@/components/channel/ChannelStrategyCard";
 import ChannelVideosList from "@/components/channel/ChannelVideosList";
 
 export default function ChannelAnalysisPage() {
@@ -244,10 +247,10 @@ export default function ChannelAnalysisPage() {
               </svg>
             </span>
             <h3 className="font-display text-xl font-bold text-text-primary">
-              Kanal Analizi ve Sentez İşlemi Devam Ediyor
+              Kanal Analizi ve Büyüme Raporu Hazırlanıyor
             </h3>
             <p className="mt-1 text-xs sm:text-sm text-text-muted">
-              Kanalın son 5 videosunun tüm izleyici yorumları çekilip Gemini 2.5 Flash ile çoklu video çapraz analizine tabi tutuluyor. Yorum hacmine bağlı olarak bu işlem 1-3 dakika sürebilir, lütfen sayfayı kapatmayın.
+              Kanalının son 5 videosundaki tüm izleyici geri bildirimleri taranıp kitle hafızası ve genel performansı haritalandırılıyor. Yorum hacmine bağlı olarak bu işlem 1-3 dakika sürebilir, lütfen sayfayı kapatmayın.
             </p>
           </div>
 
@@ -272,10 +275,10 @@ export default function ChannelAnalysisPage() {
                 >
                   {loadingStep > 1 ? "✓" : "1"}
                 </span>
-                <strong className="text-xs sm:text-sm font-semibold">Kanal & Video Tespiti</strong>
+                <strong className="text-xs sm:text-sm font-semibold">İzleyici Görüşleri Taranıyor</strong>
               </div>
               <p className="mt-2 text-xs text-text-muted">
-                Kanalın son 5 videosu YouTube Data API üzerinden çekiliyor.
+                Kanalın son 5 videosundaki tüm izleyici yorumları taranıyor.
               </p>
             </div>
 
@@ -299,10 +302,10 @@ export default function ChannelAnalysisPage() {
                 >
                   {loadingStep > 2 ? "✓" : "2"}
                 </span>
-                <strong className="text-xs sm:text-sm font-semibold">Yorum & Duygu Analizi</strong>
+                <strong className="text-xs sm:text-sm font-semibold">Kitle Nabzı & Duygu Analizi</strong>
               </div>
               <p className="mt-2 text-xs text-text-muted">
-                Her videonun izleyici yorumları kategorize ediliyor.
+                İzleyicilerin duygu durumu ve konu başlıkları sınıflandırılıyor.
               </p>
             </div>
 
@@ -324,10 +327,10 @@ export default function ChannelAnalysisPage() {
                 >
                   3
                 </span>
-                <strong className="text-xs sm:text-sm font-semibold">Gemini Kanal Sentezi</strong>
+                <strong className="text-xs sm:text-sm font-semibold">Stratejik Kitle Özeti</strong>
               </div>
               <p className="mt-2 text-xs text-text-muted">
-                Kanal sağlık skoru, trend ve büyüme stratejisi oluşturuluyor.
+                Kanal sağlık skoru, kitle trendi ve stratejik büyüme planı oluşturuluyor.
               </p>
             </div>
           </div>
@@ -353,7 +356,7 @@ export default function ChannelAnalysisPage() {
               {error.code === "INSUFFICIENT_CREDITS" && (
                 <div className="mt-4">
                   <a
-                    href="https://wa.me/905000000000?text=Merhaba,%20YorumAI%20kanal%20analizi%20için%20ek%20kredi%20almak%20istiyorum."
+                    href="https://wa.me/905000000000?text=Merhaba,%20CommentLab%20kanal%20analizi%20için%20ek%20kredi%20almak%20istiyorum."
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-2 rounded-lg bg-sentiment-positive px-4 py-2 text-xs font-bold text-bg-base hover:bg-sentiment-positive/90 transition-colors"
@@ -367,28 +370,44 @@ export default function ChannelAnalysisPage() {
         </div>
       )}
 
-      {/* Sonuç Raporu */}
+      {/* Sonuç Raporu: Executive Creator Growth Audit */}
       {result && result.channel_report && (
         <div className="space-y-8 animate-fade-in">
-          {/* 1. Kanal Sağlık & Yönetici Özeti Kartı */}
+          {/* Modül 1: Executive Health Score & Retention KPI */}
           <ChannelHealthCard
             report={result.channel_report}
             videoCount={result.video_count || result.analyzed_videos?.length || 5}
             createdAt={result.created_at}
+            channelId={result.channel_id}
+            analyzedVideos={result.analyzed_videos}
           />
 
-          {/* 2. Gemini Strateji ve Aksiyon Planı Kartı */}
-          <ChannelStrategyCard
-            strategy={result.channel_report.actionable_channel_strategy}
+          {/* Modül 2: The Silent Killers (Kanalı Yavaşlatan Gizli Kusurlar & Acil Reçeteler) */}
+          <SilentKillersCard issues={result.channel_report.recurring_issues} />
+
+          {/* Modül 3: High-ROI Next Video Ideas (3 Garanti İçerik Konsepti, Başlık & Hook) */}
+          <HighRoiVideoIdeasCard ideas={result.channel_report.next_video_ideas} />
+
+          {/* Modül 4: Audience Persona & Demographics (Kitle Kimliği & Motivasyonu) */}
+          <AudiencePersonaCard
+            persona={result.channel_report.audience_persona}
+            shiftInsights={result.channel_report.audience_shift_insights}
           />
 
-          {/* 3. Duygu Dağılım Trend Grafiği */}
+          {/* Modül 5: Sponsorship & Commercial Value (Sponsorluk ve Ticari Güç Değer Önerisi) */}
+          <CommercialValueCard commercial={result.channel_report.commercial_value} />
+
+          {/* 5 Video Duygu Değişim Eğrisi */}
           <SentimentTrendChart videos={result.analyzed_videos} />
 
-          {/* 4. Tekrar Eden Kronik Sorunlar Kartı */}
-          <RecurringIssues issues={result.channel_report.recurring_issues} />
+          {/* Modül 6: CommentLab Action Blueprint (90 Günlük Büyüme Reçetesi & Soft Pitch CTA) */}
+          <GrowthBlueprintCard
+            blueprint={result.channel_report.growth_blueprint}
+            strategy={result.channel_report.actionable_channel_strategy}
+            channelTitle={result.channel_title || result.channel_report.channel_title || "Kanal"}
+          />
 
-          {/* 5. Analiz Edilen Videoların Listesi */}
+          {/* Analiz Edilen Videoların Listesi */}
           <ChannelVideosList videos={result.analyzed_videos} />
         </div>
       )}

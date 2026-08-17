@@ -93,7 +93,7 @@ function createFileName(title: string, analysisDate: string | null) {
     ? new Date().toISOString().slice(0, 10)
     : date.toISOString().slice(0, 10);
 
-  return `YorumAI-Analiz-${normalizedTitle || "YouTube-Video"}-${safeDate}.pdf`;
+  return `CommentLab-Analiz-${normalizedTitle || "YouTube-Video"}-${safeDate}.pdf`;
 }
 
 function DownloadIcon() {

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import ThemeToggle from "@/components/ThemeToggle";
+import BrandLogo from "@/components/BrandLogo";
 
 export default function AuthShell({
   title,
@@ -16,14 +17,9 @@ export default function AuthShell({
       <div className="pointer-events-none absolute left-1/2 top-0 h-96 w-96 -translate-x-1/2 rounded-full bg-accent-record/10 blur-[100px]" />
       <div className="absolute right-4 top-4 z-10"><ThemeToggle /></div>
       <div className="relative w-full max-w-md">
-        <Link href="/" className="mx-auto mb-7 flex w-fit items-center gap-2.5" aria-label="YorumAI ana sayfa">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-accent-record/30 bg-accent-record/10 text-accent-record">
-            <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5" stroke="currentColor" strokeWidth="1.8">
-              <path d="M4 5h16v11H9l-5 4V5Z" /><path d="M8 9h8m-8 3h5" />
-            </svg>
-          </span>
-          <span className="font-display text-xl font-extrabold">Yorum<span className="text-accent-record">AI</span></span>
-        </Link>
+        <div className="mb-7 flex justify-center">
+          <BrandLogo size="lg" isLink={true} href="/" />
+        </div>
         <section className="rounded-2xl border border-border-subtle bg-bg-surface/85 p-6 shadow-2xl backdrop-blur-xl sm:p-8">
           <p className="font-mono text-[11px] font-bold uppercase tracking-[0.2em] text-accent-record">Hesabın</p>
           <h1 className="mt-2 font-display text-2xl font-extrabold">{title}</h1>

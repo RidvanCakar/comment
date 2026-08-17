@@ -246,7 +246,7 @@ def _generate_with_retry_sync(prompt: str, api_key: str | None = None) -> str:
                 model = genai.GenerativeModel(model_name)
                 response = model.generate_content(
                     prompt,
-                    generation_config={"response_mime_type": "application/json"},
+                    generation_config={"response_mime_type": "application/json", "temperature": 0.1},
                 )
                 if response and response.text:
                     return response.text.strip()
@@ -288,7 +288,7 @@ async def _generate_with_retry_async(prompt: str, api_key: str | None = None) ->
                 model = genai.GenerativeModel(model_name)
                 response = await model.generate_content_async(
                     prompt,
-                    generation_config={"response_mime_type": "application/json"},
+                    generation_config={"response_mime_type": "application/json", "temperature": 0.1},
                 )
                 if response and response.text:
                     return response.text.strip()
@@ -509,8 +509,15 @@ SON KONTROL:
 
 async def analyze_channel_insights(video_reports: List[Dict[str, Any]], api_key: str | None = None) -> Dict[str, Any]:
     """
-    5 videonun bireysel analiz sonuçlarını girdi olarak alarak Gemini 2.5 Flash ile
-    kanal geneli sağlık skoru, duygu trendi, tekrar eden sorunlar ve kanal stratejisi sentezi üretir.
+    5 videonun bireysel analiz sonuçlarını girdi olarak alarak CommentLab AI Engine ile
+    Executive Creator Growth Audit (Kanal Sağlık ve Kitle İstihbarat Raporu) üretir.
+    6 Stratejik Modül:
+    1. Executive Health Score (Sağlık & Sadakat Karnesi)
+    2. The Silent Killers (Kanalı Yavaşlatan Gizli Kusurlar & Acil Eylemler)
+    3. High-ROI Next Video Ideas (İzleyicinin İstediği 3 İçerik Konsepti, Başlık & Hook)
+    4. Audience Demographics & Persona Vibe (Kitle Kimliği & Motivasyon)
+    5. Sponsorship & Commercial Value (Ticari Güç & Sponsorluk Nişleri)
+    6. CommentLab Action Blueprint (90 Günlük Büyüme Reçetesi)
     """
     resolved_keys = get_ordered_api_keys(api_key)
     if not resolved_keys:
@@ -520,9 +527,29 @@ async def analyze_channel_insights(video_reports: List[Dict[str, Any]], api_key:
         return {
             "channel_title": "Bilinmeyen Kanal",
             "overall_health_score": 0,
+            "loyalty_rate": 0,
+            "audience_resonance": 0,
+            "retention_verdict": "NEEDS_OPTIMIZATION",
             "sentiment_trend": "STABLE",
             "summary": "Analiz edilecek video verisi bulunamadı.",
             "recurring_issues": [],
+            "next_video_ideas": [],
+            "audience_persona": {
+                "expertise_level": "Bilinmiyor",
+                "trust_sentiment": "Yetersiz Veri",
+                "primary_motive": "Analiz için video gereklidir.",
+                "audience_shift_insights": "Yeterli video verisi bulunmuyor."
+            },
+            "commercial_value": {
+                "commercial_intent_score": 0,
+                "recommended_niches": [],
+                "monetization_pitch": "Veri oluştukça ticari potansiyel hesaplanacaktır."
+            },
+            "growth_blueprint": {
+                "day_30_focus": "En az 1 video analizi yapın.",
+                "day_60_focus": "Kitle geri bildirimlerini toplayın.",
+                "day_90_focus": "Büyüme stratejisini uygulayın."
+            },
             "audience_shift_insights": "Yeterli video verisi bulunmuyor.",
             "actionable_channel_strategy": {
                 "insight": "Veri yok",
@@ -538,75 +565,199 @@ async def analyze_channel_insights(video_reports: List[Dict[str, Any]], api_key:
             detected_channel_title = r["channel_title"]
             break
 
-    # Videoları kronolojik veya yapılandırılmış özet bloğuna dönüştür
+    # 1. Videoları kronolojik olarak (Eskiden Yeniye) kesin olarak sırala
+    sorted_reports = sorted(
+        video_reports,
+        key=lambda r: str(r.get("published_at") or "")
+    )
+
+    # 2. Matematiksel Doğrulanmış Trend ve Sağlık Metriklerini Hesapla
+    pos_scores: List[float] = []
+    neg_scores: List[float] = []
+    net_scores: List[float] = []
+
     reports_payload = []
-    for idx, report in enumerate(video_reports, 1):
+    for idx, report in enumerate(sorted_reports, 1):
         v_title = report.get("video_title") or report.get("title") or f"Video {idx}"
         v_published = report.get("published_at") or "Bilinmeyen Tarih"
         v_comments = report.get("comment_count_analyzed", 0)
         
-        # İç analiz verisi (analysis_json veya doğrudan analysis dict)
         analysis_data = report.get("analysis") or report
         sentiment = analysis_data.get("sentiment_distribution", {})
+        pos_val = float(sentiment.get("positive_percent", 0))
+        neg_val = float(sentiment.get("negative_percent", 0))
+        neu_val = float(sentiment.get("neutral_percent", 0))
+
+        pos_scores.append(pos_val)
+        neg_scores.append(neg_val)
+        net_scores.append(pos_val - neg_val)
+
         summary = analysis_data.get("overall_summary", "")
         top_rec = analysis_data.get("top_recommendation", {})
         topics = analysis_data.get("topics", [])
         
         topic_summaries = [
-            f"- {t.get('topic')}: %{t.get('percent', 0)} ({t.get('sentiment', 'neutral')})"
+            f"- {t.get('topic')}: %{t.get('percent', 0)} ({t.get('sentiment', 'neutral')}) -> {t.get('insight', '')}"
             for t in topics[:6]
         ]
 
         reports_payload.append(
-            f"--- [VİDEO #{idx}] ---\n"
+            f"--- [KRONOLOJİK VİDEO #{idx} (Eskiden Yeniye)] ---\n"
             f"Başlık: {v_title}\n"
             f"Yayın Tarihi: {v_published}\n"
             f"Analiz Edilen Yorum Sayısı: {v_comments}\n"
-            f"Duygu Dağılımı: Olumlu %{sentiment.get('positive_percent', 0)}, Olumsuz %{sentiment.get('negative_percent', 0)}, Nötr %{sentiment.get('neutral_percent', 0)}\n"
-            f"Özet: {summary}\n"
-            f"Öne Çıkan Konular:\n" + "\n".join(topic_summaries) + "\n"
-            f"Öne Çıkan Tavsiye: {json.dumps(top_rec, ensure_ascii=False) if isinstance(top_rec, dict) else str(top_rec)}"
+            f"Duygu Dağılımı: Olumlu %{pos_val:.1f}, Olumsuz %{neg_val:.1f}, Nötr %{neu_val:.1f} (Net Memnuniyet Skoru: %{pos_val - neg_val:+.1f})\n"
+            f"Yönetici Özeti: {summary}\n"
+            f"Öne Çıkan Kitle Konuları:\n" + "\n".join(topic_summaries) + "\n"
+            f"Video İçin Kritik Tavsiye: {json.dumps(top_rec, ensure_ascii=False) if isinstance(top_rec, dict) else str(top_rec)}"
         )
+
+    # Matematiksel Trend: İlk yarı videoları vs Son yarı videoları
+    if len(net_scores) >= 2:
+        mid = max(1, len(net_scores) // 2)
+        early_net = sum(net_scores[:mid]) / mid
+        recent_net = sum(net_scores[mid:]) / (len(net_scores) - mid)
+    # Matematiksel Trend: İlk yarı videoları vs Son yarı videoları
+    if len(net_scores) >= 2:
+        mid = max(1, len(net_scores) // 2)
+        early_net = sum(net_scores[:mid]) / mid
+        recent_net = sum(net_scores[mid:]) / (len(net_scores) - mid)
+        net_delta = recent_net - early_net
+
+        if net_delta >= 3.0:
+            math_trend = "yukseliste"
+        elif net_delta <= -3.0:
+            math_trend = "dusus_egiliminde"
+        else:
+            math_trend = "dengeli"
+    else:
+        net_delta = 0.0
+        math_trend = "dengeli"
+
+    # Matematiksel Sağlık ve Sadakat Skoru
+    avg_pos = sum(pos_scores) / max(1, len(pos_scores)) if pos_scores else 75.0
+    avg_neg = sum(neg_scores) / max(1, len(neg_scores)) if neg_scores else 15.0
+    math_health_score = int(round(max(10, min(98, (avg_pos * 0.9) - (avg_neg * 0.5) + 15))))
+    math_loyalty = int(round(max(30, min(95, avg_pos * 0.95))))
+    math_resonance = int(round(max(40, min(98, 100 - (avg_neg * 1.5)))))
+
+    if math_health_score >= 80:
+        math_verdict = "Güçlü Kitle Bağlılığı"
+    elif math_health_score >= 60:
+        math_verdict = "İstikrarlı İzleyici İlgisi"
+    else:
+        math_verdict = "Kritik İzleyici Kaybı"
 
     full_reports_text = "\n\n".join(reports_payload)
 
-    prompt = f"""Sen kıdemli bir YouTube Kanal Danışmanı ve İçerik Büyüme Stratejisti yapay zekasısın.
-Aşağıda "{detected_channel_title}" isimli YouTube kanalının son yayınlanan {len(video_reports)} videosunun bireysel analiz raporları bulunmaktadır.
+    prompt = f"""Sen başarılı YouTube kanallarına birebir strateji danışmanlığı veren kıdemli bir YouTube İçerik ve Büyüme Danışmanısın.
+Aşağıda "{detected_channel_title}" isimli kanalın son yayınlanan {len(video_reports)} videosunun izleyici yorum analizleri kronolojik olarak (eskiden yeniye) yer almaktadır.
 
-VİDEO ANALİZ RAPORLARI:
+KESİN DİL VE ÜSLUP KURALLARI:
+1. Tüm çıktıları %100 akıcı, samimi, sıcak ve Türkçe YouTube/içerik terimleriyle yaz.
+2. ASLA robotik yapay zeka jargonu veya İngilizce kalıplar (Hook, Retention, Verdict, Blueprint, Telemetri, Modül 01 vb.) KULLANMA.
+3. Bir YouTuber'a kahve eşliğinde içerik danışmanlığı veren tecrübeli bir dost/yönetici gibi konuş.
+
+DOĞRULANMIŞ MATEMATİKSEL İSTATİSTİKLER:
+- Kronolojik Net Memnuniyet Değişimi: {net_delta:+.2f}%
+- Kitle Eğilimi Durumu: {math_trend}
+- Kanal Sağlık Puanı: {math_health_score} / 100
+- Ortalama Olumlu: %{avg_pos:.1f}, Ortalama Olumsuz: %{avg_neg:.1f}
+
+VİDEO ANALİZ RAPORLARI (ESKİDEN YENİYE):
 {full_reports_text}
 
 GÖREV:
-Bu videoların duygu oranlarını, başlıklarını, öne çıkan şikayet/övgü temalarını ve zaman damgalarını kronolojik olarak karşılaştır.
-Kanalın genel performansını sentezle ve aşağıdaki JSON şemasında eksiksiz bir kanal geneli rapor üret.
+Bu verileri derinlemesine sentezle ve kanal sahibine yollandığında hemen uygulayabileceği somut, pratik bir **"Kanal Büyüme ve Kitle İstihbarat Raporu"** hazırla.
 
-ANALİZ KURALLARI:
-1. `overall_health_score`: 0 ile 100 arasında tamsayı bir kanal sağlık skoru belirle. (Olumlu yorum oranları, izleyici sadakati, etkileşim kalitesi ve tekrarlayan şikayetlerin azlığına göre adil puanla).
-2. `sentiment_trend`: Yalnızca `"IMPROVING"`, `"DECLINING"` veya `"STABLE"` değerlerinden birini seç. (Videolar kronolojik olarak ilerledikçe izleyici memnuniyeti artıyor mu, düşüyor mu, yoksa sabit mi kalıyor?).
-3. `summary`: Kanalın son dönem performansını 3-4 akıcı cümleyle özetleyen kronolojik yönetici özeti yaz.
-4. `recurring_issues`: Birden fazla videoda ortaya çıkan veya kronikleşmiş teknik/içerik sorunlarını listele. Her bir eleman `issue` (sorun tanımı), `affected_videos_count` (etkilenen video sayısı) ve `first_noticed_video` (ilk görüldüğü video başlığı) içermelidir.
-5. `audience_shift_insights`: İzleyici kitlesinin format değişimlerine, konu seçimlerine veya sunum tarzına verdiği tepkileri, kitle dinamiklerini ve beklenti değişimlerini açıkla.
-6. `actionable_channel_strategy`: Kanal geneli atılması gereken en yüksek etkili tek stratejik aksiyonu belirle (`insight`, `action`, `expected_impact` alanlarını doldur).
-7. Yanıtı SADECE geçerli bir JSON olarak döndür.
+RAPOR MODÜLLERİ:
+1. **Kitle Sağlığı ve Durum Özeti**:
+   - `overall_health_score`: {math_health_score} (veya ±3 aralığında tamsayı).
+   - `loyalty_rate`: {math_loyalty} (% Süper Hayran sadakat oranı).
+   - `audience_resonance`: {math_resonance} (% Beklenti karşılama oranı).
+   - `retention_verdict`: "{math_verdict}".
+   - `sentiment_trend`: "{math_trend}" (Doğrulanmış matematiksel trendi kesinlikle koru).
+   - `summary`: 3-4 cümlelik, doğrudan aksiyon odaklı yönetici özeti.
+
+2. **Tekrarlayan Şikayetler ve Hemen Yapılacak Düzeltmeler**:
+   - `recurring_issues`: İzleyicilerin videolarda sürekli dile getirdiği kusurlar.
+   - Her eleman: `issue` (kusur), `category` ("Ses ve Müzik Dengesi", "Kurgu ve Tempo", "İçerik Derinliği", "Giriş Süresi"), `impact_level` ("Kritik", "Yüksek", "Orta"), `affected_videos_count` (sayı), `first_noticed_video` (video adı), `urgent_fix` (hemen sonraki videoda uygulanacak pratik çözüm).
+
+3. **İzleyicinin İstediği 3 Video Konsepti ve Giriş Cümleleri**:
+   - `next_video_ideas`: Yorumlardaki sorulardan türetilmiş garanti izlenecek 3 video.
+   - Her eleman: `concept_title` (Tıklanma potansiyeli yüksek başlık), `hook` (İlk 15 saniyede kameraya söylenecek açılış cümlesi), `audience_demand_score` (ör: "%92 Kitle Talebi"), `why_it_works` (neden izlenecek?).
+
+4. **Kitle Profili ve İzleme Motivasyonu**:
+   - `audience_persona`: `expertise_level` (Kitle uzmanlık seviyesi), `trust_sentiment` (Kanal sahibine duyulan güven/samimiyet tonu), `primary_motive` (Videoya tıklama sebebi), `audience_shift_insights` (Format değişimlerine kitle tepkisi).
+
+5. **Sponsorluk ve Gelir Fırsatları Rehberi**:
+   - `commercial_value`:
+     - `target_spending_areas`: Yorumlardaki ilgiye göre kitlenin para harcamaktan çekinmeyeceği 3 net kategori ve nedeni (ör: ["Futbol Menajerlik & Konsol Oyunları: İzleyiciler taktik karşılaştırmalarına yoğun ilgi gösteriyor.", "Spor Ekipmanları & Forma: Marka soruları sıkça geçiyor.", "Dijital Spor Yayınları: Canlı maç içeriklerini aktif tüketiyorlar."]).
+     - `ad_integration_tips`: Sponsorluk alırken kitleyi kızdırmama tüyosu (ör: "Kitleniz samimiyete çok önem veriyor; bahis veya şüpheli mobil oyunlar yerine videonun akışına yedirilmiş doğal entegrasyonlar tercih edin.").
+     - `monetization_pitch`: Kanal sahibinin kopyalayıp sponsorluk başvuru e-postasına yapıştırabileceği tek paragraflık kitle gücü kanıtı.
+     - `recommended_niches`: En uygun 3-4 sektör adı.
+     - `commercial_intent_score`: 0-100 arasında satın alma niyeti skoru.
+
+6. **90 Günlük Adım Adım Büyüme Planı**:
+   - `growth_blueprint`: `day_30_focus` (İlk 30 gün yapılacak hızlı teknik ve giriş düzeltmeleri), `day_60_focus` (30-60 gün içerik serisi), `day_90_focus` (60-90 gün topluluk ve gelir).
+   - `actionable_channel_strategy`: `insight`, `action`, `expected_impact`.
+
+Yanıtı SADECE geçerli bir JSON olarak döndür.
 
 İSTENEN JSON ŞEMASI:
 {{
   "channel_title": "{detected_channel_title}",
-  "overall_health_score": 85,
-  "sentiment_trend": "IMPROVING",
-  "summary": "3-4 cümlelik kronolojik kanal özeti",
+  "overall_health_score": {math_health_score},
+  "loyalty_rate": {math_loyalty},
+  "audience_resonance": {math_resonance},
+  "retention_verdict": "{math_verdict}",
+  "sentiment_trend": "{math_trend}",
+  "summary": "Kanal izleyicileri son videolarda...",
   "recurring_issues": [
     {{
-      "issue": "Sorun tanımı (ör: Ses miksajındaki dengesizlik)",
+      "issue": "Giriş bölümündeki fon müziği konuşmayı bastırıyor",
+      "category": "Ses ve Müzik Dengesi",
+      "impact_level": "Yüksek",
       "affected_videos_count": 3,
-      "first_noticed_video": "İlk Fark Edilen Video Başlığı"
+      "first_noticed_video": "Örnek Video Başlığı",
+      "urgent_fix": "Arka plan müziğini -6dB kısarak konuşma sesini netleştirin."
     }}
   ],
-  "audience_shift_insights": "İzleyici kitlesinin içerik değişimine verdiği tepkiler ve kitle eğilimleri",
+  "next_video_ideas": [
+    {{
+      "concept_title": "Tıklanma Potansiyeli Yüksek Başlık",
+      "hook": "İlk 15 saniyede doğrudan sonuca girip 'Bu videoda...' diyerek başlayın.",
+      "audience_demand_score": "%92 Kitle Talebi",
+      "why_it_works": "Son videolarda izleyicilerin en çok sorduğu konuyu yanıtlıyor."
+    }}
+  ],
+  "audience_persona": {{
+    "expertise_level": "Orta - İleri Seviye İzleyici Kitlesi",
+    "trust_sentiment": "Yüksek Samimiyet ve Otorite",
+    "primary_motive": "Uygulanabilir pratik bilgiler ve analiz",
+    "audience_shift_insights": "Kitle uzun formattaki detaylı anlatımlara daha olumlu tepki veriyor."
+  }},
+  "commercial_value": {{
+    "commercial_intent_score": 84,
+    "target_spending_areas": [
+      "Teknoloji & Yazılım Araçları: İzleyiciler önerilen araçları denemeye istekli.",
+      "Stüdyo & Donanım: Yorumlarda mikrofon ve kamera soruları sıkça geliyor.",
+      "Online Eğitim & Kitap: Kitle kişisel gelişime önem veriyor."
+    ],
+    "ad_integration_tips": "Kitleniz yapay reklamları hemen fark ediyor; ürünleri bizzat kullandığınızı gösteren doğal entegrasyonlar yapın.",
+    "monetization_pitch": "Kanalımız, içeriklerde tavsiye edilen araçlara ve ürünlere yüksek güven duyan, satın alma potansiyeli yüksek sadık bir kitleye sahiptir.",
+    "recommended_niches": ["Teknoloji & Yazılım", "Donanım", "Eğitim"]
+  }},
+  "growth_blueprint": {{
+    "day_30_focus": "Ses dengesini ve ilk 15 saniyelik giriş temposunu optimize edin.",
+    "day_60_focus": "En çok talep edilen 3 video konusunu seri olarak yayınlayın.",
+    "day_90_focus": "Kitle bağlılığını sponsorluk ve topluluk gelirine dönüştürün."
+  }},
+  "audience_shift_insights": "Kitle uzun formattaki detaylı anlatımlara daha olumlu tepki veriyor.",
   "actionable_channel_strategy": {{
-    "insight": "Tespit edilen temel eğilim",
-    "action": "Kanal geneli atılması gereken somut adım",
-    "expected_impact": "Beklenen fayda ve izleyici dönüşümü"
+    "insight": "İzleyiciler derinlemesine vaka analizlerini dikkatle izliyor.",
+    "action": "İlk 15 saniyedeki giriş cümlesini doğrudan videonun en can alıcı noktasıyla açın.",
+    "expected_impact": "İzlenme süresinde artış ve yüksek kitle bağlılığı."
   }}
 }}
 """
@@ -623,7 +774,6 @@ ANALİZ KURALLARI:
 
         result = json.loads(text)
 
-        # Doğrulama ve normalizasyon
         if not isinstance(result, dict):
             raise ValueError("Gemini sonucu beklenen JSON nesnesi tipinde değil.")
 
@@ -632,21 +782,39 @@ ANALİZ KURALLARI:
 
         # overall_health_score normalizasyonu (0 - 100 int)
         try:
-            score = int(result.get("overall_health_score", 70))
+            score = int(result.get("overall_health_score", math_health_score))
+            score = max(min(score, math_health_score + 10), math_health_score - 10)
             result["overall_health_score"] = max(0, min(100, score))
         except (ValueError, TypeError):
-            result["overall_health_score"] = 70
+            result["overall_health_score"] = math_health_score
 
-        # sentiment_trend normalizasyonu
-        trend = str(result.get("sentiment_trend", "STABLE")).strip().upper()
-        if trend not in {"IMPROVING", "DECLINING", "STABLE"}:
-            trend = "STABLE"
-        result["sentiment_trend"] = trend
+        # loyalty_rate normalizasyonu
+        try:
+            loyalty = int(result.get("loyalty_rate", math_loyalty))
+            result["loyalty_rate"] = max(0, min(100, loyalty))
+        except (ValueError, TypeError):
+            result["loyalty_rate"] = math_loyalty
+
+        # audience_resonance normalizasyonu
+        try:
+            resonance = int(result.get("audience_resonance", math_resonance))
+            result["audience_resonance"] = max(0, min(100, resonance))
+        except (ValueError, TypeError):
+            result["audience_resonance"] = math_resonance
+
+        # retention_verdict
+        verdict = str(result.get("retention_verdict", math_verdict)).strip()
+        if not verdict:
+            verdict = math_verdict
+        result["retention_verdict"] = verdict
+
+        # sentiment_trend KESİN MATEMATİKSEL TUTARLILIK (Deterministik)
+        result["sentiment_trend"] = math_trend
 
         # summary kontrolü
         result["summary"] = str(result.get("summary", "")).strip()
 
-        # recurring_issues normalizasyonu
+        # recurring_issues
         raw_issues = result.get("recurring_issues", [])
         clean_issues = []
         if isinstance(raw_issues, list):
@@ -654,13 +822,89 @@ ANALİZ KURALLARI:
                 if isinstance(issue, dict):
                     clean_issues.append({
                         "issue": str(issue.get("issue", "")).strip(),
+                        "category": str(issue.get("category", "İçerik & Kurgu")).strip(),
+                        "impact_level": str(issue.get("impact_level", "Yüksek")).strip(),
                         "affected_videos_count": int(issue.get("affected_videos_count", 1) or 1),
-                        "first_noticed_video": str(issue.get("first_noticed_video", "")).strip()
+                        "first_noticed_video": str(issue.get("first_noticed_video", "")).strip(),
+                        "urgent_fix": str(issue.get("urgent_fix", "")).strip()
                     })
         result["recurring_issues"] = clean_issues
 
-        # audience_shift_insights
-        result["audience_shift_insights"] = str(result.get("audience_shift_insights", "")).strip()
+        # next_video_ideas
+        raw_ideas = result.get("next_video_ideas", [])
+        clean_ideas = []
+        if isinstance(raw_ideas, list):
+            for idea in raw_ideas:
+                if isinstance(idea, dict):
+                    clean_ideas.append({
+                        "concept_title": str(idea.get("concept_title", "")).strip(),
+                        "hook": str(idea.get("hook", "")).strip(),
+                        "audience_demand_score": str(idea.get("audience_demand_score", "%85+ Kitle Talebi")).strip(),
+                        "why_it_works": str(idea.get("why_it_works", "")).strip()
+                    })
+        result["next_video_ideas"] = clean_ideas
+
+        # audience_persona
+        persona = result.get("audience_persona")
+        if isinstance(persona, dict):
+            result["audience_persona"] = {
+                "expertise_level": str(persona.get("expertise_level", "Orta Seviye")).strip(),
+                "trust_sentiment": str(persona.get("trust_sentiment", "Yüksek Güven")).strip(),
+                "primary_motive": str(persona.get("primary_motive", "Bilgi ve Gelişim")).strip(),
+                "audience_shift_insights": str(persona.get("audience_shift_insights", "")).strip()
+            }
+        else:
+            result["audience_persona"] = {
+                "expertise_level": "Orta Seviye",
+                "trust_sentiment": "Yüksek Güven",
+                "primary_motive": "Bilgi ve Gelişim",
+                "audience_shift_insights": str(result.get("audience_shift_insights", ""))
+            }
+
+        # commercial_value
+        commercial = result.get("commercial_value")
+        if isinstance(commercial, dict):
+            niches = commercial.get("recommended_niches", [])
+            if not isinstance(niches, list):
+                niches = [str(niches)]
+            spending_areas = commercial.get("target_spending_areas", [])
+            if not isinstance(spending_areas, list):
+                spending_areas = [str(spending_areas)]
+            result["commercial_value"] = {
+                "commercial_intent_score": max(0, min(100, int(commercial.get("commercial_intent_score", 80) or 80))),
+                "recommended_niches": [str(n).strip() for n in niches if str(n).strip()],
+                "target_spending_areas": [str(a).strip() for a in spending_areas if str(a).strip()],
+                "ad_integration_tips": str(commercial.get("ad_integration_tips", "Kitlenizin samimiyet beklentisine uygun doğal entegrasyonlar tercih edin.")).strip(),
+                "monetization_pitch": str(commercial.get("monetization_pitch", "Kanal izleyicileri tavsiye edilen ürün ve araçlara yüksek güven duymaktadır.")).strip()
+            }
+        else:
+            result["commercial_value"] = {
+                "commercial_intent_score": 80,
+                "recommended_niches": ["Teknoloji", "Donanım", "Eğitim"],
+                "target_spending_areas": [
+                  "İlgili Sektör Ürünleri: Kitle videolardaki araç ve ekipmanları merak ediyor."
+                ],
+                "ad_integration_tips": "Kitlenizin samimiyet beklentisine uygun doğal entegrasyonlar tercih edin.",
+                "monetization_pitch": "Kanal izleyicileri tavsiye edilen ürün ve araçlara yüksek güven duymaktadır."
+            }
+
+        # growth_blueprint
+        blueprint = result.get("growth_blueprint")
+        if isinstance(blueprint, dict):
+            result["growth_blueprint"] = {
+                "day_30_focus": str(blueprint.get("day_30_focus", "")).strip(),
+                "day_60_focus": str(blueprint.get("day_60_focus", "")).strip(),
+                "day_90_focus": str(blueprint.get("day_90_focus", "")).strip()
+            }
+        else:
+            result["growth_blueprint"] = {
+                "day_30_focus": "İlk 15 saniyelik giriş temposunu optimize edin.",
+                "day_60_focus": "En çok talep edilen video konularını yayınlayın.",
+                "day_90_focus": "Kitle sadakatini sponsorluk ve topluluk gelirine dönüştürün."
+            }
+
+        # audience_shift_insights fallback
+        result["audience_shift_insights"] = str(result.get("audience_shift_insights") or result["audience_persona"]["audience_shift_insights"]).strip()
 
         # actionable_channel_strategy
         strategy = result.get("actionable_channel_strategy")
@@ -680,7 +924,7 @@ ANALİZ KURALLARI:
         return result
 
     except json.JSONDecodeError as e:
-        raise ValueError(f"Gemini'den dönen kanal analizi JSON formatında değil: {str(e)}\nYanıt: {response.text}")
+        raise ValueError(f"CommentLab AI Engine kanal analizi JSON formatında değil: {str(e)}\nYanıt: {raw_text}")
     except Exception as e:
-        raise RuntimeError(f"Kanal analizi sırasında Gemini hatası oluştu: {str(e)}")
+        raise RuntimeError(f"Kanal analizi sırasında hata oluştu: {str(e)}")
 

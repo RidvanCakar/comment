@@ -3,7 +3,7 @@ import { whatsappDisplayNumber, whatsappUrl } from "@/lib/support";
 
 export default function CreditsExhaustedState() {
   const message =
-    "Merhaba, YorumAI için ek analiz kredisi almak istiyorum.";
+    "Merhaba, CommentLab için ek analiz kredisi almak istiyorum.";
 
   return (
     <div className="mx-auto my-6 w-full max-w-xl min-w-0 overflow-hidden rounded-2xl border border-accent-record/30 bg-accent-record/10 p-5 shadow-lg sm:p-6">

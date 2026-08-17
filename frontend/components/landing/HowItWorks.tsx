@@ -1,3 +1,5 @@
+"use client";
+
 import LandingIcon, { type LandingIconName } from "./LandingIcon";
 import Reveal from "./Reveal";
 
@@ -10,23 +12,23 @@ const steps: {
   {
     number: "01",
     icon: "link",
-    title: "Video veya Kanal Linki Gir",
+    title: "Video veya Kanal URL'si Girin",
     description:
-      "Tek bir YouTube video linki veya kanal kullanıcı adını (@handle) yapıştır.",
+      "Tek bir YouTube video bağlantısı veya kanal kullanıcı adını (@handle) yapıştırın.",
   },
   {
     number: "02",
     icon: "sparkles",
-    title: "Gemini 2.5 Flash Analiz Etsin",
+    title: "CommentLab AI Engine Analiz Etsin",
     description:
-      "Yapay zekâ binlerce yorumu ayıklar; duygu dağılımı, temalar ve çoklu video sentezi yapar.",
+      "Gürültüyü temizleyip değerli kitle fikirlerini ayıklar; kitle duygu durumunu çıkarır ve gizli büyüme fırsatlarını belirler.",
   },
   {
     number: "03",
     icon: "clipboard",
-    title: "Stratejik Raporunu Al",
+    title: "Stratejik Büyüme Raporunu Alın",
     description:
-      "Kanal Sağlık Skoru, duygu trendi, kronik sorunlar ve bir sonraki videon için net aksiyonu gör.",
+      "Kanal Sağlık Skoru, kitle tepkileri ve bir sonraki videonuz için uygulanabilir eylem planını anında görün.",
   },
 ];
 
@@ -36,25 +38,25 @@ export default function HowItWorks() {
       <div className="mx-auto w-full max-w-7xl">
         <Reveal>
           <SectionIntro
-            eyebrow="Üç basit adım"
-            title="Dakikalarca yorum okumadan izleyicini anla."
-            description="Bağlantıyı ver; gerisini YorumAI senin için düzenli, okunabilir ve uygulanabilir bir rapora dönüştürsün."
+            eyebrow="ÜÇ BASİT ADIM"
+            title="Dakikalarca yorum okumadan kitlenizi anlayın."
+            description="Bağlantıyı yapıştırın; CommentLab dağınık kitle sesini organize, ölçülebilir ve uygulanabilir bir büyüme raporuna dönüştürsün."
           />
         </Reveal>
 
         <div className="relative mt-12 grid gap-4 md:grid-cols-3 md:gap-6">
-          <div className="absolute left-[16.66%] right-[16.66%] top-12 hidden border-t border-dashed border-accent-record/25 md:block" />
+          <div className="absolute left-[16.66%] right-[16.66%] top-12 hidden border-t border-dashed border-zinc-800 md:block" />
           {steps.map((step, index) => (
             <Reveal key={step.number} delay={index * 90}>
-              <article className="group relative h-full overflow-hidden rounded-2xl border border-border-subtle bg-bg-surface/70 p-6 backdrop-blur-lg transition-all hover:-translate-y-1 hover:border-accent-record/30 hover:shadow-xl hover:shadow-black/5 sm:p-7">
-                <span className="absolute right-4 top-2 font-mono text-5xl font-black text-fill-muted">
+              <article className="group relative h-full overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-900/40 p-6 backdrop-blur-xl transition-all hover:-translate-y-1 hover:border-zinc-700 hover:bg-zinc-900/70 sm:p-8">
+                <span className="absolute right-5 top-3 font-mono text-5xl font-black text-zinc-800/80 group-hover:text-zinc-700 transition">
                   {step.number}
                 </span>
-                <div className="relative mb-6 flex h-12 w-12 items-center justify-center rounded-xl border border-accent-record/25 bg-accent-record/10 text-accent-record">
+                <div className="relative mb-6 flex h-12 w-12 items-center justify-center rounded-2xl border border-rose-500/30 bg-rose-500/10 text-rose-400">
                   <LandingIcon name={step.icon} className="h-6 w-6" />
                 </div>
-                <h3 className="font-display text-lg font-bold text-text-primary">{step.title}</h3>
-                <p className="mt-3 text-sm leading-6 text-text-muted sm:text-base">{step.description}</p>
+                <h3 className="font-display text-lg font-bold text-white">{step.title}</h3>
+                <p className="mt-3 text-sm leading-relaxed text-zinc-400">{step.description}</p>
               </article>
             </Reveal>
           ))}
@@ -77,13 +79,13 @@ export function SectionIntro({
 }) {
   return (
     <div className={`${centered ? "mx-auto max-w-2xl text-center" : "max-w-2xl"}`}>
-      <span className="font-mono text-xs font-bold uppercase tracking-[0.2em] text-accent-record">
+      <span className="font-mono text-xs font-bold uppercase tracking-widest text-rose-400">
         {eyebrow}
       </span>
-      <h2 className="mt-3 font-display text-3xl font-extrabold tracking-[-0.03em] text-text-primary sm:text-4xl">
+      <h2 className="mt-3 font-display text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
         {title}
       </h2>
-      <p className="mt-4 text-base leading-7 text-text-muted sm:text-lg">{description}</p>
+      <p className="mt-4 text-base leading-relaxed text-zinc-400 sm:text-lg">{description}</p>
     </div>
   );
 }

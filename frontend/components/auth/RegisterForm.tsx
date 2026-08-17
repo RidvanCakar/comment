@@ -47,7 +47,7 @@ export default function RegisterForm() {
   return (
     <AuthShell
       title="Hesabını oluştur"
-      description="YorumAI hesabını birkaç saniye içinde oluşturarak başlayabilirsin."
+      description="CommentLab hesabını birkaç saniye içinde oluşturarak başlayabilirsin."
     >
       <form onSubmit={submit} className="space-y-4">
         <label className="block text-sm font-semibold">

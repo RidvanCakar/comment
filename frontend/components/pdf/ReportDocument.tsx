@@ -404,17 +404,17 @@ export default function ReportDocument({ data }: { data: PdfReportData }) {
 
   return (
     <Document
-      title={`${data.videoTitle} — YorumAI Analiz Raporu`}
-      author="YorumAI"
-      subject="YouTube yorum analiz raporu"
+      title={`${data.videoTitle} — CommentLab Analiz Raporu`}
+      author="CommentLab"
+      subject="YouTube & Audience Intelligence analiz raporu"
       language="tr-TR"
     >
       <Page size="A4" style={styles.page} wrap>
         <View style={styles.brandRow}>
           <Text style={styles.brand}>
-            Yorum<Text style={styles.brandAccent}>AI</Text>
+            Comment<Text style={styles.brandAccent}>Lab</Text>
           </Text>
-          <Text style={styles.reportLabel}>YouTube Yorum Analiz Raporu</Text>
+          <Text style={styles.reportLabel}>Audience Intelligence Analiz Raporu</Text>
         </View>
 
         <Text style={styles.title}>{data.videoTitle}</Text>
@@ -516,7 +516,7 @@ export default function ReportDocument({ data }: { data: PdfReportData }) {
         </View>
 
         <View style={styles.footer} fixed>
-          <Text>YorumAI ile oluşturulmuştur</Text>
+          <Text>CommentLab ile oluşturulmuştur</Text>
           <Text
             render={({ pageNumber, totalPages }) =>
               `Sayfa ${pageNumber} / ${totalPages}`

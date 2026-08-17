@@ -381,3 +381,40 @@ def get_latest_channel_analysis(db: Session, channel_id: str) -> Optional[Channe
         .first()
     )
 
+
+def delete_video_analysis(db: Session, video_id: str) -> bool:
+    """Belirtilen video analizini ve ilgili ücretlendirme kaydını veritabanından siler."""
+    deleted = False
+    record = db.query(VideoAnalysis).filter(VideoAnalysis.video_id == video_id).first()
+    if record:
+        db.delete(record)
+        deleted = True
+
+    charges = db.query(UserAnalysisCharge).filter(UserAnalysisCharge.video_id == video_id).all()
+    for charge in charges:
+        db.delete(charge)
+        deleted = True
+
+    if deleted:
+        db.commit()
+    return deleted
+
+
+def delete_channel_analysis(db: Session, channel_identifier: str) -> bool:
+    """Belirtilen kanal analizini veritabanından siler (channel_id veya record id ile)."""
+    deleted = False
+    if channel_identifier.isdigit():
+        record = db.query(ChannelAnalysis).filter(ChannelAnalysis.id == int(channel_identifier)).first()
+        if record:
+            db.delete(record)
+            deleted = True
+
+    records = db.query(ChannelAnalysis).filter(ChannelAnalysis.channel_id == channel_identifier).all()
+    for rec in records:
+        db.delete(rec)
+        deleted = True
+
+    if deleted:
+        db.commit()
+    return deleted
+

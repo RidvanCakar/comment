@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Kayıt Ol",
-  description: "Ücretsiz YorumAI hesabını oluştur.",
+  description: "Ücretsiz CommentLab hesabını oluştur.",
 };
 
 export default function RegisterLayout({ children }: { children: React.ReactNode }) {

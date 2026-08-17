@@ -27,9 +27,13 @@ export default function DashboardPage() {
       setChannelHistory(readChannelAnalysisHistory(user.id));
     };
     load();
+    window.addEventListener("commentlab:analysis-history", load);
+    window.addEventListener("commentlab:channel-analysis-history", load);
     window.addEventListener("yorumai:analysis-history", load);
     window.addEventListener("yorumai:channel-analysis-history", load);
     return () => {
+      window.removeEventListener("commentlab:analysis-history", load);
+      window.removeEventListener("commentlab:channel-analysis-history", load);
       window.removeEventListener("yorumai:analysis-history", load);
       window.removeEventListener("yorumai:channel-analysis-history", load);
     };
@@ -139,7 +143,7 @@ export default function DashboardPage() {
               Bir Fikrin veya Özellik Önerin mi Var?
             </h3>
             <p className="text-xs text-text-muted">
-              YorumAI'yi seninle birlikte geliştiriyoruz. Önerilerini doğrudan geliştirici ekibine ilet.
+              CommentLab'i seninle birlikte geliştiriyoruz. Önerilerini doğrudan geliştirici ekibine ilet.
             </p>
           </div>
         </div>

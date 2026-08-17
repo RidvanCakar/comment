@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { whatsappDisplayNumber, whatsappUrl } from "@/lib/support";
 
-const SUPPORT_MESSAGE = "Merhaba, YorumAI destek hattından yazıyorum.";
+const SUPPORT_MESSAGE = "Merhaba, CommentLab destek hattından yazıyorum.";
 
 export default function DestekPage() {
   return (

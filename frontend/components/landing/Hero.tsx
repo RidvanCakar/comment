@@ -26,7 +26,7 @@ export default function Hero() {
             </h1>
 
             <p className="mx-auto mt-6 max-w-xl text-base leading-7 text-text-muted sm:text-lg sm:leading-8 lg:mx-0">
-              YorumAI; tekil video veya kanal geneli 5 videonun binlerce izleyici yorumunu analiz eder, Kanal Sağlık Skorunu (0-100), duygu trendini ve kronik şikâyetleri ortaya çıkarır.
+              CommentLab; tekil video veya kanal geneli 5 videonun binlerce izleyici yorumunu analiz eder, Kanal Sağlık Skorunu (0-100), duygu trendini ve kronik şikâyetleri ortaya çıkarır.
             </p>
 
             <div className="mt-8 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center lg:justify-start">
@@ -76,7 +76,7 @@ function HeroMockup() {
             <span className="h-2.5 w-2.5 rounded-full bg-sentiment-positive/80" />
           </div>
           <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-muted">
-            YorumAI analiz raporu
+            CommentLab analiz raporu
           </span>
           <span className="h-2 w-2 animate-pulse rounded-full bg-sentiment-positive" />
         </div>

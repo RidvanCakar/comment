@@ -23,12 +23,53 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://commentlab.ai"),
   title: {
-    default: "YorumAI — YouTube Yorum Analiz Platformu",
-    template: "%s | YorumAI",
+    default: "CommentLab - AI Audience Intelligence & Comment Analytics",
+    template: "%s | CommentLab",
   },
   description:
-    "YouTube yorumlarını yapay zekâ ile analiz ederek içerik üreticileri için ölçülebilir içgörülere ve somut video önerilerine dönüştürür.",
+    "Analyze YouTube & social comments with AI precision. Extract sentiment, trends, and growth insights.",
+  keywords: [
+    "CommentLab",
+    "YouTube comment analysis",
+    "audience intelligence",
+    "AI comment analyzer",
+    "sentiment analysis",
+    "creator tools",
+    "channel health score",
+  ],
+  authors: [{ name: "CommentLab" }],
+  creator: "CommentLab",
+  openGraph: {
+    type: "website",
+    locale: "tr_TR",
+    url: "https://commentlab.ai",
+    siteName: "CommentLab",
+    title: "CommentLab - AI Audience Intelligence & Comment Analytics",
+    description:
+      "Analyze YouTube & social comments with AI precision. Extract sentiment, trends, and growth insights.",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "CommentLab - AI Audience Intelligence & Comment Analytics",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "CommentLab - AI Audience Intelligence & Comment Analytics",
+    description:
+      "Analyze YouTube & social comments with AI precision. Extract sentiment, trends, and growth insights.",
+    creator: "@CommentLabAI",
+    images: ["/og-image.png"],
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 const themeInitScript = `

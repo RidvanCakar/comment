@@ -24,11 +24,10 @@ export default function ReportPreview() {
           <div className="inline-flex rounded-xl border border-border-subtle bg-bg-surface/80 p-1.5 backdrop-blur-md">
             <button
               onClick={() => setActiveView("channel")}
-              className={`flex items-center gap-2 rounded-lg px-4 py-2 text-xs sm:text-sm font-bold transition-all ${
-                activeView === "channel"
+              className={`flex items-center gap-2 rounded-lg px-4 py-2 text-xs sm:text-sm font-bold transition-all ${activeView === "channel"
                   ? "bg-accent-record text-[#17130b] shadow-md shadow-accent-record/20"
                   : "text-text-muted hover:text-text-primary"
-              }`}
+                }`}
             >
               <span>⚡ Kanal Geneli Sentez Raporu</span>
               <span className="rounded bg-black/15 px-1.5 py-0.5 text-[10px] uppercase font-mono">Yeni</span>
@@ -36,11 +35,10 @@ export default function ReportPreview() {
 
             <button
               onClick={() => setActiveView("video")}
-              className={`flex items-center gap-2 rounded-lg px-4 py-2 text-xs sm:text-sm font-bold transition-all ${
-                activeView === "video"
+              className={`flex items-center gap-2 rounded-lg px-4 py-2 text-xs sm:text-sm font-bold transition-all ${activeView === "video"
                   ? "bg-text-primary text-bg-base shadow-md"
                   : "text-text-muted hover:text-text-primary"
-              }`}
+                }`}
             >
               <span>Tekil Video Raporu</span>
             </button>

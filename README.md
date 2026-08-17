@@ -1,6 +1,6 @@
-# 🎬 YorumAI - YouTube Video & Kanal Yorum Analiz Platformu
+# 🎬 CommentLab - AI Audience Intelligence & Comment Analytics Platform
 
-**YorumAI**, içerik üreticilerinin ve dijital pazarlamacıların YouTube video ve kanallarına gelen binlerce yorumu yapay zeka ile derinlemesine analiz etmesini sağlayan modern, full-stack bir analiz platformudur.
+**CommentLab**, içerik üreticilerinin ve dijital pazarlamacıların YouTube video ve kanallarına gelen binlerce izleyici yorumunu yapay zeka ile derinlemesine analiz etmesini sağlayan modern, full-stack bir Audience Intelligence platformudur.
 
 Platform; tekil video analizlerinin yanı sıra **Kanal Geneli Toplu Analiz (Channel Insights)**, **Kredi Sistemi**, **E-posta Doğrulama**, **Şifre Sıfırlama**, **Kullanıcı Fikir/Geri Bildirim Yönetimi** ve **Admin Kontrol Paneli** özelliklerini içerir.
 

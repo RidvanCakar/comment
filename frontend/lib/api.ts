@@ -51,8 +51,39 @@ export interface QuotaInfo {
 
 export interface RecurringIssue {
   issue: string;
+  category?: string;
+  impact_level?: "Kritik" | "Yüksek" | "Orta" | string;
   affected_videos_count: number;
   first_noticed_video: string;
+  urgent_fix?: string;
+}
+
+export interface NextVideoIdea {
+  concept_title: string;
+  hook: string;
+  audience_demand_score: string;
+  why_it_works: string;
+}
+
+export interface AudiencePersona {
+  expertise_level: string;
+  trust_sentiment: string;
+  primary_motive: string;
+  audience_shift_insights?: string;
+}
+
+export interface CommercialValue {
+  commercial_intent_score?: number;
+  recommended_niches: string[];
+  target_spending_areas?: string[];
+  ad_integration_tips?: string;
+  monetization_pitch: string;
+}
+
+export interface GrowthBlueprint {
+  day_30_focus: string;
+  day_60_focus: string;
+  day_90_focus: string;
 }
 
 export interface ActionableChannelStrategy {
@@ -64,9 +95,16 @@ export interface ActionableChannelStrategy {
 export interface ChannelReport {
   channel_title: string;
   overall_health_score: number;
-  sentiment_trend: "IMPROVING" | "DECLINING" | "STABLE";
+  loyalty_rate?: number;
+  audience_resonance?: number;
+  retention_verdict?: string;
+  sentiment_trend: "yukseliste" | "dusus_egiliminde" | "dengeli" | "IMPROVING" | "DECLINING" | "STABLE" | string;
   summary: string;
   recurring_issues: RecurringIssue[];
+  next_video_ideas?: NextVideoIdea[];
+  audience_persona?: AudiencePersona;
+  commercial_value?: CommercialValue;
+  growth_blueprint?: GrowthBlueprint;
   audience_shift_insights: string;
   actionable_channel_strategy: ActionableChannelStrategy;
 }
@@ -355,6 +393,18 @@ export async function deleteAdminFeedback(
   feedbackId: number,
 ): Promise<{ message: string }> {
   return apiRequest<{ message: string }>(`/admin/feedbacks/${feedbackId}`, {
+    method: "DELETE",
+  });
+}
+
+export async function deleteAdminVideoAnalysis(videoId: string): Promise<void> {
+  return apiRequest<void>(`/admin/analyses/video/${encodeURIComponent(videoId)}`, {
+    method: "DELETE",
+  });
+}
+
+export async function deleteAdminChannelAnalysis(channelId: string): Promise<void> {
+  return apiRequest<void>(`/admin/analyses/channel/${encodeURIComponent(channelId)}`, {
     method: "DELETE",
   });
 }

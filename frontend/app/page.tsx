@@ -10,16 +10,18 @@ import ReportPreview from "@/components/landing/ReportPreview";
 
 export const metadata: Metadata = {
   title: {
-    absolute: "YorumAI — YouTube Yorum Analiz Platformu",
+    absolute: "CommentLab - AI Audience Intelligence & Comment Analytics",
   },
   description:
-    "YouTube yorumlarını yapay zekâ ile analiz et; duygu dağılımını, gerçek izleyici temalarını ve bir sonraki videon için veriye dayalı önerileri keşfet.",
+    "Analyze YouTube & social comments with AI precision. Extract sentiment, trends, and growth insights.",
   keywords: [
     "YouTube yorum analizi",
+    "Audience Intelligence",
+    "CommentLab",
     "içerik üretici araçları",
     "yapay zeka yorum analizi",
     "YouTube içerik stratejisi",
-    "YorumAI",
+    "sentiment analysis",
   ],
 };
 

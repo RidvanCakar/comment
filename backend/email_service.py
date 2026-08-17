@@ -10,6 +10,13 @@ from config import settings
 logger = logging.getLogger("email_service")
 
 
+def _get_from_email() -> str:
+    from_addr = settings.resend_from_email or "onboarding@resend.dev"
+    if "<" in from_addr:
+        return from_addr
+    return f"CommentLab Support <{from_addr}>"
+
+
 def send_verification_email(email: str, full_name: str, token: str) -> bool:
     """
     Resend SDK kullanarak kullanıcıya doğrulama bağlantısı içeren e-posta gönderir.
@@ -32,7 +39,7 @@ def send_verification_email(email: str, full_name: str, token: str) -> bool:
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>E-posta Adresinizi Doğrulayın</title>
+        <title>E-posta Adresinizi Doğrulayın - CommentLab</title>
         <style>
             body {{
                 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
@@ -52,19 +59,34 @@ def send_verification_email(email: str, full_name: str, token: str) -> bool:
                 box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
             }}
             .header {{
-                background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
-                padding: 30px;
+                background: linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%);
+                padding: 32px 20px;
                 text-align: center;
                 border-bottom: 1px solid #30363d;
             }}
             .logo {{
-                font-size: 26px;
-                font-weight: 800;
+                font-size: 28px;
+                font-weight: 900;
                 color: #ffffff;
                 letter-spacing: -0.5px;
             }}
             .logo span {{
-                color: #ef4444;
+                background: linear-gradient(90deg, #818cf8, #06b6d4);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: #06b6d4;
+                color: #06b6d4;
+            }}
+            .badge {{
+                display: inline-block;
+                background: rgba(99, 102, 241, 0.2);
+                border: 1px solid rgba(99, 102, 241, 0.4);
+                color: #818cf8;
+                font-size: 11px;
+                font-weight: 700;
+                padding: 2px 8px;
+                border-radius: 6px;
+                vertical-align: middle;
+                margin-left: 6px;
             }}
             .content {{
                 padding: 32px 28px;
@@ -87,19 +109,19 @@ def send_verification_email(email: str, full_name: str, token: str) -> bool:
             }}
             .btn {{
                 display: inline-block;
-                background-color: #ef4444;
+                background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
                 color: #ffffff !important;
-                font-weight: 600;
+                font-weight: 700;
                 font-size: 16px;
-                padding: 14px 32px;
-                border-radius: 8px;
+                padding: 14px 36px;
+                border-radius: 10px;
                 text-decoration: none;
-                transition: background-color 0.2s ease;
-                box-shadow: 0 4px 14px rgba(239, 68, 68, 0.35);
+                transition: opacity 0.2s ease;
+                box-shadow: 0 4px 18px rgba(99, 102, 241, 0.4);
             }}
             .note {{
                 background-color: #1c2128;
-                border-left: 4px solid #ef4444;
+                border-left: 4px solid #6366f1;
                 padding: 14px 16px;
                 border-radius: 4px;
                 font-size: 13px;
@@ -127,11 +149,11 @@ def send_verification_email(email: str, full_name: str, token: str) -> bool:
     <body>
         <div class="container">
             <div class="header">
-                <div class="logo">Yorum<span>AI</span></div>
+                <div class="logo">Comment<span>Lab</span> <span class="badge">AI</span></div>
             </div>
             <div class="content">
                 <h1>Merhaba {full_name},</h1>
-                <p>YorumAI platformuna hoş geldiniz! Hesabınızı aktifleştirmek ve tüm özelliklere kesintisiz erişim sağlamak için lütfen e-posta adresinizi doğrulayın.</p>
+                <p>CommentLab Audience Intelligence platformuna hoş geldiniz! Hesabınızı aktifleştirmek ve tüm analiz özelliklerine kesintisiz erişim sağlamak için lütfen e-posta adresinizi doğrulayın.</p>
                 
                 <div class="btn-wrapper">
                     <a href="{verification_url}" class="btn" target="_blank">E-posta Adresimi Doğrula</a>
@@ -147,7 +169,7 @@ def send_verification_email(email: str, full_name: str, token: str) -> bool:
                 </p>
             </div>
             <div class="footer">
-                &copy; YorumAI - Tüm hakları saklıdır. Bu e-posta otomatik olarak gönderilmiştir.
+                &copy; 2026 CommentLab - Tüm hakları saklıdır. Bu e-posta otomatik olarak gönderilmiştir.
             </div>
         </div>
     </body>
@@ -155,9 +177,9 @@ def send_verification_email(email: str, full_name: str, token: str) -> bool:
     """
 
     params: resend.Emails.SendParams = {
-        "from": settings.resend_from_email,
+        "from": _get_from_email(),
         "to": [email],
-        "subject": "E-posta Adresinizi Doğrulayın - YorumAI",
+        "subject": "E-posta Adresinizi Doğrulayın - CommentLab",
         "html": html_content,
     }
 
@@ -167,8 +189,6 @@ def send_verification_email(email: str, full_name: str, token: str) -> bool:
         return True
     except Exception as e:
         logger.error(f"Resend e-posta gönderim hatası ({email}): {e}")
-        # Test alan adları (ör. @example.com) veya Resend ücretsiz test anahtarı kısıtlamalarında
-        # uygulamanın ve akışın kesintiye uğramasını önlemek için başarılı kabul edilir.
         return True
 
 
@@ -194,7 +214,7 @@ def send_password_reset_email(email: str, full_name: str, token: str) -> bool:
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Şifrenizi Sıfırlayın</title>
+        <title>Şifrenizi Sıfırlayın - CommentLab</title>
         <style>
             body {{
                 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
@@ -214,19 +234,34 @@ def send_password_reset_email(email: str, full_name: str, token: str) -> bool:
                 box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
             }}
             .header {{
-                background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
-                padding: 30px;
+                background: linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%);
+                padding: 32px 20px;
                 text-align: center;
                 border-bottom: 1px solid #30363d;
             }}
             .logo {{
-                font-size: 26px;
-                font-weight: 800;
+                font-size: 28px;
+                font-weight: 900;
                 color: #ffffff;
                 letter-spacing: -0.5px;
             }}
             .logo span {{
-                color: #f2a93b;
+                background: linear-gradient(90deg, #818cf8, #06b6d4);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: #06b6d4;
+                color: #06b6d4;
+            }}
+            .badge {{
+                display: inline-block;
+                background: rgba(99, 102, 241, 0.2);
+                border: 1px solid rgba(99, 102, 241, 0.4);
+                color: #818cf8;
+                font-size: 11px;
+                font-weight: 700;
+                padding: 2px 8px;
+                border-radius: 6px;
+                vertical-align: middle;
+                margin-left: 6px;
             }}
             .content {{
                 padding: 32px 28px;
@@ -249,19 +284,19 @@ def send_password_reset_email(email: str, full_name: str, token: str) -> bool:
             }}
             .btn {{
                 display: inline-block;
-                background-color: #f2a93b;
-                color: #17130b !important;
+                background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+                color: #ffffff !important;
                 font-weight: 700;
                 font-size: 16px;
-                padding: 14px 32px;
-                border-radius: 8px;
+                padding: 14px 36px;
+                border-radius: 10px;
                 text-decoration: none;
-                transition: background-color 0.2s ease;
-                box-shadow: 0 4px 14px rgba(242, 169, 59, 0.35);
+                transition: opacity 0.2s ease;
+                box-shadow: 0 4px 18px rgba(99, 102, 241, 0.4);
             }}
             .note {{
                 background-color: #1c2128;
-                border-left: 4px solid #f2a93b;
+                border-left: 4px solid #6366f1;
                 padding: 14px 16px;
                 border-radius: 4px;
                 font-size: 13px;
@@ -289,11 +324,11 @@ def send_password_reset_email(email: str, full_name: str, token: str) -> bool:
     <body>
         <div class="container">
             <div class="header">
-                <div class="logo">Yorum<span>AI</span></div>
+                <div class="logo">Comment<span>Lab</span> <span class="badge">AI</span></div>
             </div>
             <div class="content">
                 <h1>Merhaba {full_name},</h1>
-                <p>YorumAI hesabınız için bir şifre sıfırlama talebinde bulundunuz. Yeni bir şifre belirlemek için lütfen aşağıdaki butona tıklayın.</p>
+                <p>CommentLab hesabınız için bir şifre sıfırlama talebinde bulundunuz. Yeni bir şifre belirlemek için lütfen aşağıdaki butona tıklayın.</p>
                 
                 <div class="btn-wrapper">
                     <a href="{reset_url}" class="btn" target="_blank">Şifremi Sıfırla</a>
@@ -309,7 +344,7 @@ def send_password_reset_email(email: str, full_name: str, token: str) -> bool:
                 </p>
             </div>
             <div class="footer">
-                &copy; YorumAI - Tüm hakları saklıdır. Bu e-posta otomatik olarak gönderilmiştir.
+                &copy; 2026 CommentLab - Tüm hakları saklıdır. Bu e-posta otomatik olarak gönderilmiştir.
             </div>
         </div>
     </body>
@@ -317,9 +352,9 @@ def send_password_reset_email(email: str, full_name: str, token: str) -> bool:
     """
 
     params: resend.Emails.SendParams = {
-        "from": settings.resend_from_email,
+        "from": _get_from_email(),
         "to": [email],
-        "subject": "Şifre Sıfırlama Talebi - YorumAI",
+        "subject": "Şifre Sıfırlama Talebi - CommentLab",
         "html": html_content,
     }
 

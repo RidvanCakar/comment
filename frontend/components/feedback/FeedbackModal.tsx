@@ -32,7 +32,7 @@ const CATEGORIES: { id: FeedbackCategory; label: string; icon: string; desc: str
     id: "general",
     label: "Genel Görüş",
     icon: "💬",
-    desc: "YorumAI deneyimin hakkında düşüncelerin",
+    desc: "CommentLab deneyimin hakkında düşüncelerin",
   },
 ];
 
@@ -144,7 +144,7 @@ export default function FeedbackModal({ isOpen, onClose, onSuccess }: FeedbackMo
                   Fikir & Geri Bildirim Paylaş
                 </h2>
                 <p className="text-xs text-text-muted">
-                  YorumAI'yi geliştirmek için önerilerini ve karşılaştığın sorunları bizimle paylaş.
+                  CommentLab'i geliştirmek için önerilerini ve karşılaştığın sorunları bizimle paylaş.
                 </p>
               </div>
             </div>

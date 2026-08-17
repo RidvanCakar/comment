@@ -5,7 +5,7 @@ export default function SssPage() {
     <div className="mx-auto max-w-4xl">
       <p className="font-mono text-xs font-bold uppercase tracking-[0.2em] text-accent-record">Merak ettiklerin</p>
       <h1 className="mt-2 font-display text-3xl font-extrabold">Sıkça sorulan sorular</h1>
-      <p className="mt-2 text-text-muted">YorumAI hakkında en çok sorulan konuların kısa yanıtları.</p>
+      <p className="mt-2 text-text-muted">CommentLab hakkında en çok sorulan konuların kısa yanıtları.</p>
 
       <div className="mt-8 space-y-3">
         {faqItems.map((faq) => (

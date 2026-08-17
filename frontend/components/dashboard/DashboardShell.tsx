@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/components/auth/AuthProvider";
 import DashboardSidebar from "@/components/dashboard/DashboardSidebar";
+import BrandLogo from "@/components/BrandLogo";
 
 export default function DashboardShell({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -132,9 +133,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
                 <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
               </svg>
             </button>
-            <span className="font-display text-lg font-extrabold">
-              Yorum<span className="text-accent-record">AI</span>
-            </span>
+            <BrandLogo size="sm" isLink={true} href="/dashboard" />
           </header>
 
           {!user.is_verified && !user.isVerified && (

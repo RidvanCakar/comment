@@ -67,7 +67,7 @@ def test_channel_analysis_database_operations(db_session):
 async def test_analyze_channel_insights_empty():
     res = await analyze_channel_insights([], api_key="test_key")
     assert res["overall_health_score"] == 0
-    assert res["sentiment_trend"] == "STABLE"
+    assert res["sentiment_trend"] in ("dengeli", "STABLE")
     assert "actionable_channel_strategy" in res
 
 
@@ -78,9 +78,9 @@ async def test_analyze_channel_insights_with_mock():
             "video_id": f"vid_{i}",
             "title": f"Video Title {i}",
             "channel_title": "Mega Channel",
-            "published_at": "2026-08-01T12:00:00Z",
+            "published_at": f"2026-08-0{i+1}T12:00:00Z",
             "comment_count_analyzed": 50,
-            "sentiment_distribution": {"positive_percent": 75, "negative_percent": 15, "neutral_percent": 10},
+            "sentiment_distribution": {"positive_percent": 65 + (i * 5), "negative_percent": 15 - (i * 2), "neutral_percent": 20 - (i * 3)},
             "overall_summary": "Video genel olarak beğenildi.",
             "topics": [{"topic": "İçerik", "percent": 50, "sentiment": "positive"}],
             "top_recommendation": {"insight": "Örnek", "action": "Adım", "expected_impact": "Fayda"}
@@ -92,7 +92,7 @@ async def test_analyze_channel_insights_with_mock():
     mock_gemini_response.text = '''{
         "channel_title": "Mega Channel",
         "overall_health_score": 85,
-        "sentiment_trend": "IMPROVING",
+        "sentiment_trend": "yukseliste",
         "summary": "Son 5 videoda genel beğeni yüksek ve yükseliş eğiliminde.",
         "recurring_issues": [
             {
@@ -118,7 +118,7 @@ async def test_analyze_channel_insights_with_mock():
 
         assert result["channel_title"] == "Mega Channel"
         assert result["overall_health_score"] == 85
-        assert result["sentiment_trend"] == "IMPROVING"
+        assert result["sentiment_trend"] == "yukseliste"
         assert len(result["recurring_issues"]) == 1
         assert result["recurring_issues"][0]["issue"] == "Ses kalitesi"
         assert result["actionable_channel_strategy"]["action"] == "Aynı formata devam edin."

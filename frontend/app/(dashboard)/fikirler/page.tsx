@@ -67,7 +67,7 @@ export default function FikirlerPage() {
               Bir Fikrin veya Ek Özellik İsteğin mi Var?
             </h2>
             <p className="text-xs sm:text-sm text-text-muted leading-relaxed">
-              YorumAI kullanıcı deneyimlerini ön planda tutarak geliştiriliyor. Yeni bir özellik veya tasarım önerisi için hemen bize yaz.
+              CommentLab kullanıcı deneyimlerini ön planda tutarak geliştiriliyor. Yeni bir özellik veya tasarım önerisi için hemen bize yaz.
             </p>
           </div>
 
