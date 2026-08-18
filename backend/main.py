@@ -438,6 +438,7 @@ async def analyze_channel(
     """
     Belirtilen YouTube kanalının son videolarını toplu analiz eder ve kanal geneli sentez raporu üretir.
     Maliyet: 3 Analiz Kredisi.
+    Son 10 dakika içinde aynı kanal için yapılmış analiz varsa önbellekten döner (kredi düşmez).
     """
     if not YOUTUBE_API_KEY or YOUTUBE_API_KEY.startswith("YOUR_"):
         raise HTTPException(
@@ -455,6 +456,54 @@ async def analyze_channel(
 
     # 1. Kredi ve yetki kontrolü
     assert_can_analyze_channel(user, guest)
+
+    # ── 10 DAKİKA KANAL ANALİZİ CACHE ──
+    # force_refresh False ise, son 10 dakikadaki analizi dön (kredi düşürme)
+    if not body.force_refresh:
+        from datetime import timedelta
+        try:
+            resolved_ch_id = resolve_channel_id(body.channel_url, YOUTUBE_API_KEY)
+        except Exception:
+            resolved_ch_id = None
+
+        if resolved_ch_id:
+            cached_channel = get_latest_channel_analysis(db, resolved_ch_id)
+            if cached_channel and cached_channel.created_at:
+                from datetime import timezone
+                cache_age = datetime.utcnow() - cached_channel.created_at
+                if cache_age.total_seconds() < 600:  # 10 dakika
+                    # Önbellekten dön, kredi düşürme
+                    cached_report = cached_channel.channel_report or {}
+                    cached_vid_ids = cached_channel.analyzed_video_ids or []
+                    # Önbellekteki video analizlerini de topla
+                    cached_video_reports = []
+                    for vid_id in cached_vid_ids:
+                        v_cached = get_cached_analysis(db, vid_id)
+                        if v_cached:
+                            try:
+                                v_analysis = json.loads(v_cached.analysis_json)
+                            except Exception:
+                                v_analysis = {}
+                            cached_video_reports.append({
+                                "video_id": v_cached.video_id,
+                                "title": v_cached.video_title,
+                                "channel_title": v_cached.channel_title,
+                                "published_at": "",
+                                "thumbnail_url": "",
+                                "comment_count_analyzed": v_cached.comment_count_analyzed,
+                                "analysis": v_analysis,
+                                "cached": True,
+                            })
+                    return {
+                        "channel_id": resolved_ch_id,
+                        "channel_title": cached_channel.channel_title,
+                        "video_count": cached_channel.video_count,
+                        "created_at": _json_datetime(cached_channel.created_at),
+                        "channel_report": cached_report,
+                        "analyzed_videos": cached_video_reports,
+                        "quota": quota_snapshot(user, guest),
+                        "from_cache": True,
+                    }
 
     # 2. Kanalın son videolarını çek
     try:

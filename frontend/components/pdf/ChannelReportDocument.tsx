@@ -25,202 +25,139 @@ Font.register({
   ],
 });
 
-Font.registerHyphenationCallback((word) => [word]);
+Font.registerHyphenationCallback((word: string) => [word]);
 
-const colors = {
-  ink: "#0F172A",
-  muted: "#64748B",
-  line: "#E2E8F0",
+const C = {
+  ink: "#17202A",
+  muted: "#657080",
+  line: "#E4E7EB",
   paper: "#FFFFFF",
-  surface: "#F8FAFC",
-  surfaceAlt: "#F1F5F9",
-  accent: "#FF2E54",
-  accentSoft: "#FFF1F2",
-  positive: "#10B981",
-  positiveSoft: "#ECFDF5",
-  negative: "#F43F5E",
-  negativeSoft: "#FFF1F2",
-  warning: "#F59E0B",
-  warningSoft: "#FFFBEB",
-  cyan: "#06B6D4",
-  cyanSoft: "#ECFEFF",
+  surface: "#F6F7F8",
+  surfaceAlt: "#EEF0F3",
+  accent: "#D93B3B",
+  accentSoft: "#FFF0F0",
+  positive: "#4D8B61",
+  positiveSoft: "#EDF6F0",
+  negative: "#C55454",
+  negativeSoft: "#FBEFEF",
+  warning: "#C48A1A",
+  warningSoft: "#FFF8E8",
+  cyan: "#2E8B9A",
+  cyanSoft: "#E8F6F8",
 };
 
-const styles = StyleSheet.create({
+const s = StyleSheet.create({
   page: {
-    backgroundColor: colors.paper,
-    color: colors.ink,
+    backgroundColor: C.paper,
+    color: C.ink,
     fontFamily: "NotoSans",
     fontSize: 9,
-    paddingTop: 36,
-    paddingHorizontal: 40,
-    paddingBottom: 48,
+    paddingTop: 38,
+    paddingHorizontal: 42,
+    paddingBottom: 54,
   },
   brandRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     borderBottomWidth: 1,
-    borderBottomColor: colors.line,
-    paddingBottom: 12,
-    marginBottom: 18,
+    borderBottomColor: C.line,
+    paddingBottom: 14,
+    marginBottom: 22,
   },
-  brand: {
-    fontSize: 16,
-    fontWeight: 700,
-    color: colors.ink,
+  brand: { fontSize: 18, fontWeight: 700, color: C.ink },
+  brandAccent: { color: C.accent },
+  label: {
+    color: C.muted,
+    fontSize: 8,
+    textTransform: "uppercase" as const,
+    letterSpacing: 1.2,
   },
-  brandAccent: {
-    color: colors.accent,
-  },
-  reportLabel: {
-    color: colors.muted,
-    fontSize: 7.5,
-    textTransform: "uppercase",
-    fontWeight: 700,
-  },
-  titleHeader: {
-    marginBottom: 16,
-  },
-  confidentialBadge: {
-    backgroundColor: colors.accentSoft,
-    borderWidth: 1,
-    borderColor: "#FECDD3",
-    borderRadius: 3,
-    paddingVertical: 2,
-    paddingHorizontal: 6,
-    alignSelf: "flex-start",
-    marginBottom: 6,
-  },
-  confidentialText: {
-    color: colors.accent,
-    fontSize: 7.5,
-    fontWeight: 700,
-  },
-  channelTitle: {
-    fontSize: 20,
-    lineHeight: 1.2,
-    fontWeight: 700,
-    color: colors.ink,
-    marginBottom: 4,
-  },
-  subMeta: {
-    fontSize: 8.5,
-    color: colors.muted,
-  },
-  kpiRow: {
-    flexDirection: "row",
-    marginBottom: 18,
-  },
-  kpiBox: {
+  h1: { fontSize: 22, lineHeight: 1.2, fontWeight: 700, marginBottom: 5 },
+  sub: { color: C.muted, fontSize: 9, marginBottom: 18 },
+  row: { flexDirection: "row" as const, marginBottom: 20 },
+  kpi: {
     width: "24%",
     marginRight: 6,
-    backgroundColor: colors.surface,
+    backgroundColor: C.surface,
     borderWidth: 1,
-    borderColor: colors.line,
-    borderRadius: 6,
-    padding: 8,
+    borderColor: C.line,
+    borderRadius: 5,
+    padding: 9,
   },
-  kpiBoxLast: {
+  kpiLast: {
     width: "24%",
-    backgroundColor: colors.surface,
+    backgroundColor: C.surface,
     borderWidth: 1,
-    borderColor: colors.line,
-    borderRadius: 6,
-    padding: 8,
+    borderColor: C.line,
+    borderRadius: 5,
+    padding: 9,
   },
   kpiLabel: {
+    color: C.muted,
     fontSize: 7,
-    textTransform: "uppercase",
-    color: colors.muted,
-    fontWeight: 700,
+    textTransform: "uppercase" as const,
+    letterSpacing: 0.8,
     marginBottom: 3,
   },
-  kpiValue: {
-    fontSize: 14,
+  kpiVal: { fontSize: 14, fontWeight: 700, color: C.ink },
+  kpiSub: { fontSize: 7, color: C.muted, marginTop: 2 },
+  sec: { marginBottom: 18 },
+  secHead: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    marginBottom: 10,
+  },
+  secNum: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: C.accentSoft,
+    color: C.accent,
+    fontSize: 8,
     fontWeight: 700,
-    color: colors.ink,
+    textAlign: "center" as const,
+    paddingTop: 5,
+    marginRight: 7,
   },
-  kpiDesc: {
-    fontSize: 7,
-    color: colors.muted,
-    marginTop: 2,
-  },
-  section: {
-    marginBottom: 16,
-  },
-  sectionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  sectionNumber: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: colors.accentSoft,
-    color: colors.accent,
-    fontSize: 7.5,
-    fontWeight: 700,
-    textAlign: "center",
-    paddingTop: 4,
-    marginRight: 6,
-  },
-  sectionTitle: {
-    fontSize: 12,
-    fontWeight: 700,
-    color: colors.ink,
-  },
-  summaryBox: {
-    backgroundColor: colors.surface,
+  secTitle: { fontSize: 13, fontWeight: 700 },
+  box: {
+    backgroundColor: C.surface,
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: C.line,
     borderRadius: 6,
     padding: 12,
   },
-  summaryText: {
-    fontSize: 9,
-    lineHeight: 1.45,
-    color: "#334155",
-  },
-  table: {
-    borderWidth: 1,
-    borderColor: colors.line,
-    borderRadius: 6,
-    overflow: "hidden",
-    marginTop: 6,
-  },
-  tableRow: {
-    flexDirection: "row",
+  bodyText: { fontSize: 9.5, lineHeight: 1.6, color: "#334155" },
+  tRow: {
+    flexDirection: "row" as const,
     borderBottomWidth: 1,
-    borderBottomColor: colors.line,
-    paddingVertical: 7,
+    borderBottomColor: C.line,
+    paddingVertical: 6,
     paddingHorizontal: 8,
-    alignItems: "center",
+    alignItems: "center" as const,
   },
-  tableRowHeader: {
-    backgroundColor: colors.surfaceAlt,
-  },
+  tHead: { backgroundColor: C.surfaceAlt },
   card: {
-    backgroundColor: colors.surface,
+    backgroundColor: C.surface,
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: C.line,
     borderRadius: 6,
     padding: 10,
-    marginBottom: 9,
+    marginBottom: 8,
   },
-  cardCritical: {
-    backgroundColor: "#FFF5F5",
+  cardCrit: {
+    backgroundColor: C.negativeSoft,
     borderWidth: 1,
-    borderColor: "#FECDD3",
+    borderColor: "#F5C6C6",
     borderRadius: 6,
     padding: 10,
-    marginBottom: 9,
+    marginBottom: 8,
   },
-  cardHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+  cardHead: {
+    flexDirection: "row" as const,
+    justifyContent: "space-between" as const,
+    alignItems: "center" as const,
     marginBottom: 4,
   },
   badge: {
@@ -230,172 +167,250 @@ const styles = StyleSheet.create({
     fontSize: 7,
     fontWeight: 700,
   },
-  badgeCritical: {
-    backgroundColor: "#FEE2E2",
-    color: colors.negative,
-  },
-  badgePositive: {
-    backgroundColor: colors.positiveSoft,
-    color: colors.positive,
-  },
-  actionBox: {
-    backgroundColor: colors.positiveSoft,
+  fixBox: {
+    backgroundColor: C.positiveSoft,
     borderWidth: 1,
-    borderColor: "#A7F3D0",
+    borderColor: "#B5DFC5",
     borderRadius: 4,
     padding: 6,
     marginTop: 6,
   },
-  actionTitle: {
-    fontSize: 7.5,
-    fontWeight: 700,
-    color: colors.positive,
-    marginBottom: 2,
-    textTransform: "uppercase",
-  },
-  actionText: {
-    fontSize: 8,
-    color: "#065F46",
-    lineHeight: 1.35,
-  },
   footer: {
-    position: "absolute",
+    position: "absolute" as const,
     bottom: 24,
-    left: 40,
-    right: 40,
-    flexDirection: "row",
-    justifyContent: "space-between",
+    left: 42,
+    right: 42,
+    flexDirection: "row" as const,
+    justifyContent: "space-between" as const,
     borderTopWidth: 1,
-    borderTopColor: colors.line,
+    borderTopColor: C.line,
     paddingTop: 8,
     fontSize: 7.5,
-    color: colors.muted,
+    color: C.muted,
   },
 });
 
-export default function ChannelReportDocument({ data }: { data: ChannelPdfData }) {
-  const { report, channelTitle, videoCount, analysisDate, analyzedVideos = [] } = data;
-  const score = report?.overall_health_score ?? 75;
-  const loyalty = report?.loyalty_rate ?? 78;
-  const resonance = report?.audience_resonance ?? 82;
-  const verdict = report?.retention_verdict || "Güçlü Kitle Bağlılığı";
-  const trend = report?.sentiment_trend || "dengeli";
-  const issues = report?.recurring_issues || [];
-  const ideas = report?.next_video_ideas || [];
-  const persona = report?.audience_persona;
-  const commercial = report?.commercial_value;
-  const blueprint = report?.growth_blueprint;
-  const strategy = report?.actionable_channel_strategy;
+function safe(v: unknown, fallback = ""): string {
+  if (v === null || v === undefined) return fallback;
+  return String(v);
+}
 
-  const trendText =
-    trend === "yukseliste" || trend === "IMPROVING"
-      ? "YÜKSELİŞTE (POZİTİF İVME)"
-      : trend === "dusus_egiliminde" || trend === "DECLINING"
-      ? "DÜŞÜŞ EĞİLİMİNDE (DİKKAT)"
-      : "DENGELİ / İSTİKRARLI";
+export default function ChannelReportDocument({
+  data,
+}: {
+  data: ChannelPdfData;
+}) {
+  const { report, channelTitle, videoCount, analysisDate, analyzedVideos } =
+    data || {};
+  const rpt = report || ({} as ChannelReport);
+  const vids = analyzedVideos || [];
 
-  const formattedDate = analysisDate
-    ? new Date(analysisDate).toLocaleDateString("tr-TR", {
-        day: "numeric",
-        month: "long",
-        year: "numeric",
-      })
-    : new Date().toLocaleDateString("tr-TR");
+  const score = rpt.overall_health_score ?? 75;
+  const loyalty = rpt.loyalty_rate ?? 78;
+  const resonance = rpt.audience_resonance ?? 82;
+  const verdict = safe(rpt.retention_verdict, "Kitle Durumu");
+  const trend = safe(rpt.sentiment_trend, "dengeli");
+  const issues = rpt.recurring_issues || [];
+  const ideas = rpt.next_video_ideas || [];
+  const persona = rpt.audience_persona;
+  const commercial = rpt.commercial_value;
+  const blueprint = rpt.growth_blueprint;
+  const strategy = rpt.actionable_channel_strategy;
+
+  const trendLabel =
+    trend.includes("yuksel") || trend === "IMPROVING"
+      ? "YUKSELISTE"
+      : trend.includes("dusus") || trend === "DECLINING"
+      ? "DUSUS EGILIMINDE"
+      : "DENGELI / ISTIKRARLI";
+
+  let fmtDate = "";
+  try {
+    fmtDate = analysisDate
+      ? new Date(analysisDate).toLocaleDateString("tr-TR", {
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+        })
+      : new Date().toLocaleDateString("tr-TR");
+  } catch {
+    fmtDate = "Bugun";
+  }
+
+  const spendingAreas: string[] =
+    commercial?.target_spending_areas && commercial.target_spending_areas.length > 0
+      ? commercial.target_spending_areas
+      : [];
+
+  const adTips = safe(
+    commercial?.ad_integration_tips,
+    "Kitlenizin samimiyet beklentisine uygun dogal entegrasyonlar tercih edin."
+  );
+
+  const pitch = safe(
+    commercial?.monetization_pitch,
+    "Kanal izleyicileri tavsiye edilen urun ve araclara yuksek guven duymaktadir."
+  );
 
   return (
-    <Document title={`CommentLab Kanal Raporu - ${channelTitle || "Kanal"}`} author="CommentLab AI Engine">
-      {/* ================= SAYFA 1: KİTLE SAĞLIĞI & GENEL DURUM ================= */}
-      <Page size="A4" style={styles.page}>
-        <View style={styles.brandRow}>
-          <Text style={styles.brand}>
-            Comment<Text style={styles.brandAccent}>Lab</Text>
+    <Document
+      title={"CommentLab Kanal Raporu - " + safe(channelTitle, "Kanal")}
+      author="CommentLab"
+    >
+      {/* ========= SAYFA 1 ========= */}
+      <Page size="A4" style={s.page}>
+        <View style={s.brandRow}>
+          <Text style={s.brand}>
+            Comment<Text style={s.brandAccent}>Lab</Text>
           </Text>
-          <Text style={styles.reportLabel}>KANAL BÜYÜME VE KİTLE İSTİHBARAT RAPORU</Text>
+          <Text style={s.label}>KANAL BUYUME VE KITLE ISTIHBARAT RAPORU</Text>
         </View>
 
-        <View style={styles.titleHeader}>
-          <View style={styles.confidentialBadge}>
-            <Text style={styles.confidentialText}>ÖZEL KİTLE ANALİZ RAPORU</Text>
-          </View>
-          <Text style={styles.channelTitle}>@{channelTitle || "YouTube Kanalı"}</Text>
-          <Text style={styles.subMeta}>
-            Kapsam: Son {videoCount || 5} Video Sentezi • Rapor Tarihi: {formattedDate} • Motor: CommentLab AI Engine
-          </Text>
-        </View>
+        <Text style={s.h1}>
+          {"@" + safe(channelTitle, "YouTube Kanali")}
+        </Text>
+        <Text style={s.sub}>
+          {"Kapsam: Son " +
+            String(videoCount || 5) +
+            " Video Sentezi  |  Rapor Tarihi: " +
+            fmtDate +
+            "  |  Motor: CommentLab AI Engine"}
+        </Text>
 
-        {/* KPI Göstergeleri */}
-        <View style={styles.kpiRow}>
-          <View style={styles.kpiBox}>
-            <Text style={styles.kpiLabel}>Sağlık Puanı</Text>
-            <Text style={[styles.kpiValue, { color: score >= 75 ? colors.positive : colors.accent }]}>
-              {score} / 100
+        {/* KPI */}
+        <View style={s.row}>
+          <View style={s.kpi}>
+            <Text style={s.kpiLabel}>Saglik Puani</Text>
+            <Text
+              style={[
+                s.kpiVal,
+                { color: score >= 75 ? C.positive : C.accent },
+              ]}
+            >
+              {String(score) + " / 100"}
             </Text>
-            <Text style={styles.kpiDesc}>{verdict}</Text>
+            <Text style={s.kpiSub}>{verdict}</Text>
           </View>
-
-          <View style={styles.kpiBox}>
-            <Text style={styles.kpiLabel}>Kitle Eğilimi</Text>
-            <Text style={[styles.kpiValue, { fontSize: 10, paddingTop: 2 }]}>{trendText}</Text>
-            <Text style={styles.kpiDesc}>Kronolojik Memnuniyet</Text>
+          <View style={s.kpi}>
+            <Text style={s.kpiLabel}>Kitle Egilimi</Text>
+            <Text style={[s.kpiVal, { fontSize: 10 }]}>{trendLabel}</Text>
+            <Text style={s.kpiSub}>Kronolojik Memnuniyet</Text>
           </View>
-
-          <View style={styles.kpiBox}>
-            <Text style={styles.kpiLabel}>Sadakat Oranı</Text>
-            <Text style={[styles.kpiValue, { color: colors.cyan }]}>%{loyalty}</Text>
-            <Text style={styles.kpiDesc}>Süper Hayran İndeksi</Text>
+          <View style={s.kpi}>
+            <Text style={s.kpiLabel}>Sadakat Orani</Text>
+            <Text style={[s.kpiVal, { color: C.cyan }]}>
+              {"%" + String(loyalty)}
+            </Text>
+            <Text style={s.kpiSub}>Super Hayran Indeksi</Text>
           </View>
-
-          <View style={styles.kpiBoxLast}>
-            <Text style={styles.kpiLabel}>Kitle Rezonansı</Text>
-            <Text style={[styles.kpiValue, { color: colors.positive }]}>%{resonance}</Text>
-            <Text style={styles.kpiDesc}>Beklenti Karşılama</Text>
-          </View>
-        </View>
-
-        {/* Yönetici Özeti */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionNumber}>1</Text>
-            <Text style={styles.sectionTitle}>Kitle Sağlığı ve Durum Özeti</Text>
-          </View>
-          <View style={styles.summaryBox}>
-            <Text style={styles.summaryText}>{report?.summary || "Kanal izleyici yorumları incelendi."}</Text>
-            {report?.audience_shift_insights && (
-              <View style={{ marginTop: 8, paddingTop: 6, borderTopWidth: 1, borderTopColor: colors.line }}>
-                <Text style={{ fontSize: 8, fontWeight: 700, color: colors.ink }}>Kitle Hafızası ve Format Tepkileri:</Text>
-                <Text style={[styles.summaryText, { fontSize: 8.5, marginTop: 2 }]}>{report.audience_shift_insights}</Text>
-              </View>
-            )}
+          <View style={s.kpiLast}>
+            <Text style={s.kpiLabel}>Kitle Rezonansi</Text>
+            <Text style={[s.kpiVal, { color: C.positive }]}>
+              {"%" + String(resonance)}
+            </Text>
+            <Text style={s.kpiSub}>Beklenti Karsilama</Text>
           </View>
         </View>
 
-        {/* Analiz Edilen Videoların Dökümü */}
-        {analyzedVideos.length > 0 && (
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionNumber}>2</Text>
-              <Text style={styles.sectionTitle}>İncelenen Videoların Kronolojik Dağılımı</Text>
+        {/* Ozet */}
+        <View style={s.sec}>
+          <View style={s.secHead}>
+            <Text style={s.secNum}>1</Text>
+            <Text style={s.secTitle}>
+              Kitle Sagligi ve Durum Ozeti
+            </Text>
+          </View>
+          <View style={s.box}>
+            <Text style={s.bodyText}>
+              {safe(rpt.summary, "Kanal izleyici yorumlari incelendi.")}
+            </Text>
+          </View>
+        </View>
+
+        {/* Video Tablosu */}
+        {vids.length > 0 && (
+          <View style={s.sec}>
+            <View style={s.secHead}>
+              <Text style={s.secNum}>2</Text>
+              <Text style={s.secTitle}>
+                Incelenen Videolarin Kronolojik Dagilimi
+              </Text>
             </View>
-            <View style={styles.table}>
-              <View style={[styles.tableRow, styles.tableRowHeader]}>
-                <Text style={{ width: "50%", fontSize: 7.5, color: colors.muted, fontWeight: 700 }}>Video Başlığı</Text>
-                <Text style={{ width: "20%", fontSize: 7.5, color: colors.muted, textAlign: "center", fontWeight: 700 }}>Yorum Hacmi</Text>
-                <Text style={{ width: "30%", fontSize: 7.5, color: colors.muted, textAlign: "right", fontWeight: 700 }}>Duygu Dengesi</Text>
+            <View
+              style={{
+                borderWidth: 1,
+                borderColor: C.line,
+                borderRadius: 5,
+              }}
+            >
+              <View style={[s.tRow, s.tHead]}>
+                <Text
+                  style={{
+                    width: "50%",
+                    fontSize: 7.5,
+                    color: C.muted,
+                    fontWeight: 700,
+                  }}
+                >
+                  Video Basligi
+                </Text>
+                <Text
+                  style={{
+                    width: "25%",
+                    fontSize: 7.5,
+                    color: C.muted,
+                    textAlign: "center",
+                    fontWeight: 700,
+                  }}
+                >
+                  Yorum
+                </Text>
+                <Text
+                  style={{
+                    width: "25%",
+                    fontSize: 7.5,
+                    color: C.muted,
+                    textAlign: "right",
+                    fontWeight: 700,
+                  }}
+                >
+                  Olumlu / Olumsuz
+                </Text>
               </View>
-              {analyzedVideos.slice(0, 5).map((v, i) => {
-                const s = v.analysis?.sentiment_distribution || { positive_percent: 0, negative_percent: 0, neutral_percent: 0 };
-                const safeTitle = v.title ? (v.title.length > 50 ? `${v.title.slice(0, 48)}...` : v.title) : `Video #${i + 1}`;
+              {vids.slice(0, 5).map((v, i) => {
+                const sd = v.analysis?.sentiment_distribution;
+                const posP = Math.round(sd?.positive_percent || 0);
+                const negP = Math.round(sd?.negative_percent || 0);
+                const tt = v.title
+                  ? v.title.length > 45
+                    ? v.title.slice(0, 43) + "..."
+                    : v.title
+                  : "Video #" + String(i + 1);
                 return (
-                  <View key={i} style={styles.tableRow}>
-                    <Text style={{ width: "50%", fontSize: 8, fontWeight: 700 }}>
-                      {safeTitle}
+                  <View key={String(i)} style={s.tRow}>
+                    <Text
+                      style={{ width: "50%", fontSize: 8, fontWeight: 700 }}
+                    >
+                      {tt}
                     </Text>
-                    <Text style={{ width: "20%", fontSize: 8, color: colors.muted, textAlign: "center" }}>
-                      {v.comment_count_analyzed || 0} yorum
+                    <Text
+                      style={{
+                        width: "25%",
+                        fontSize: 8,
+                        color: C.muted,
+                        textAlign: "center",
+                      }}
+                    >
+                      {String(v.comment_count_analyzed || 0)}
                     </Text>
-                    <Text style={{ width: "30%", fontSize: 7.5, textAlign: "right" }}>
-                      <Text style={{ color: colors.positive }}>%{Math.round(s.positive_percent || 0)} Olumlu</Text> •{" "}
-                      <Text style={{ color: colors.negative }}>%{Math.round(s.negative_percent || 0)} Olumsuz</Text>
+                    <Text
+                      style={{
+                        width: "25%",
+                        fontSize: 8,
+                        textAlign: "right",
+                      }}
+                    >
+                      {"%" + String(posP) + " / %" + String(negP)}
                     </Text>
                   </View>
                 );
@@ -404,60 +419,106 @@ export default function ChannelReportDocument({ data }: { data: ChannelPdfData }
           </View>
         )}
 
-        <View style={styles.footer}>
-          <Text>CommentLab • Kanal Büyüme ve Kitle İstihbarat Raporu</Text>
+        <View style={s.footer}>
+          <Text>CommentLab - Kanal Raporu</Text>
           <Text>Sayfa 1 / 4</Text>
         </View>
       </Page>
 
-      {/* ================= SAYFA 2: TEKRARLAYAN ŞİKAYETLER ================= */}
-      <Page size="A4" style={styles.page}>
-        <View style={styles.brandRow}>
-          <Text style={styles.brand}>
-            Comment<Text style={styles.brandAccent}>Lab</Text>
+      {/* ========= SAYFA 2: SIKAYETLER ========= */}
+      <Page size="A4" style={s.page}>
+        <View style={s.brandRow}>
+          <Text style={s.brand}>
+            Comment<Text style={s.brandAccent}>Lab</Text>
           </Text>
-          <Text style={styles.reportLabel}>BÖLÜM 02 • ŞİKAYETLER VE DÜZELTMELER</Text>
+          <Text style={s.label}>BOLUM 02 - SIKAYETLER VE DUZELTMELER</Text>
         </View>
 
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionNumber}>3</Text>
-            <Text style={styles.sectionTitle}>Tekrarlayan Şikayetler & Hemen Yapılacak Düzeltmeler</Text>
+        <View style={s.sec}>
+          <View style={s.secHead}>
+            <Text style={s.secNum}>3</Text>
+            <Text style={s.secTitle}>
+              Tekrarlayan Sikayetler ve Hemen Yapilacak Duzeltmeler
+            </Text>
           </View>
-          <Text style={{ fontSize: 8, color: colors.muted, marginBottom: 12 }}>
-            İzleyicilerin videolarda sürekli dile getirdiği ses, kurgu, tempo ve format kusurları.
-          </Text>
 
           {issues.length === 0 ? (
-            <View style={styles.summaryBox}>
-              <Text style={styles.summaryText}>Kanal genelinde tekrar eden kronik bir kusur tespit edilmemiştir.</Text>
+            <View style={s.box}>
+              <Text style={s.bodyText}>
+                Kanal genelinde tekrar eden kronik bir kusur tespit edilmemistir.
+              </Text>
             </View>
           ) : (
             issues.slice(0, 5).map((issue, idx) => (
-              <View key={idx} style={styles.cardCritical}>
-                <View style={styles.cardHeader}>
-                  <Text style={{ fontSize: 8.5, fontWeight: 700, color: colors.negative }}>
-                    {issue.category || "İçerik & Kurgu"} • {issue.affected_videos_count || 1} Videoda Tekrar Etti
+              <View key={String(idx)} style={s.cardCrit}>
+                <View style={s.cardHead}>
+                  <Text
+                    style={{
+                      fontSize: 8.5,
+                      fontWeight: 700,
+                      color: C.negative,
+                    }}
+                  >
+                    {safe(issue.category, "Icerik ve Kurgu") +
+                      " - " +
+                      String(issue.affected_videos_count || 1) +
+                      " Videoda"}
                   </Text>
-                  <View style={[styles.badge, styles.badgeCritical]}>
-                    <Text style={{ fontSize: 7, fontWeight: 700 }}>{issue.impact_level || "Kritik"}</Text>
+                  <View
+                    style={[
+                      s.badge,
+                      {
+                        backgroundColor: C.negativeSoft,
+                        color: C.negative,
+                      },
+                    ]}
+                  >
+                    <Text style={{ fontSize: 7, fontWeight: 700 }}>
+                      {safe(issue.impact_level, "Yuksek")}
+                    </Text>
                   </View>
                 </View>
 
-                <Text style={{ fontSize: 9.5, fontWeight: 700, color: colors.ink, marginTop: 2 }}>
-                  {issue.issue || ""}
+                <Text
+                  style={{
+                    fontSize: 9.5,
+                    fontWeight: 700,
+                    color: C.ink,
+                    marginTop: 3,
+                  }}
+                >
+                  {safe(issue.issue)}
                 </Text>
 
-                {issue.first_noticed_video && (
-                  <Text style={{ fontSize: 7.5, color: colors.muted, marginTop: 2 }}>
-                    İlk Görüldüğü Video: {issue.first_noticed_video}
+                {issue.first_noticed_video ? (
+                  <Text
+                    style={{
+                      fontSize: 7.5,
+                      color: C.muted,
+                      marginTop: 2,
+                    }}
+                  >
+                    {"Ilk Goruldugu Video: " + issue.first_noticed_video}
                   </Text>
-                )}
+                ) : null}
 
-                <View style={styles.actionBox}>
-                  <Text style={styles.actionTitle}>⚡ Hemen Yapılacak Düzeltme (Sonraki Video)</Text>
-                  <Text style={styles.actionText}>
-                    {issue.urgent_fix || "Bu teknik veya kurgu noktasını bir sonraki videoda optimize edin."}
+                <View style={s.fixBox}>
+                  <Text
+                    style={{
+                      fontSize: 7.5,
+                      fontWeight: 700,
+                      color: C.positive,
+                      marginBottom: 2,
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    Hemen Yapilacak Duzeltme
+                  </Text>
+                  <Text style={{ fontSize: 8, color: "#2D5A3C", lineHeight: 1.35 }}>
+                    {safe(
+                      issue.urgent_fix,
+                      "Bu noktayi bir sonraki videoda optimize edin."
+                    )}
                   </Text>
                 </View>
               </View>
@@ -465,179 +526,310 @@ export default function ChannelReportDocument({ data }: { data: ChannelPdfData }
           )}
         </View>
 
-        <View style={styles.footer}>
-          <Text>CommentLab • Kanal Büyüme ve Kitle İstihbarat Raporu</Text>
+        <View style={s.footer}>
+          <Text>CommentLab - Kanal Raporu</Text>
           <Text>Sayfa 2 / 4</Text>
         </View>
       </Page>
 
-      {/* ================= SAYFA 3: İÇERİK KONSEPTLERİ & KİTLE PROFİLİ ================= */}
-      <Page size="A4" style={styles.page}>
-        <View style={styles.brandRow}>
-          <Text style={styles.brand}>
-            Comment<Text style={styles.brandAccent}>Lab</Text>
+      {/* ========= SAYFA 3: VIDEO FIKIRLERI & KITLE ========= */}
+      <Page size="A4" style={s.page}>
+        <View style={s.brandRow}>
+          <Text style={s.brand}>
+            Comment<Text style={s.brandAccent}>Lab</Text>
           </Text>
-          <Text style={styles.reportLabel}>BÖLÜM 03 • İÇERİK VE KİTLE PROFİLİ</Text>
+          <Text style={s.label}>BOLUM 03 - ICERIK VE KITLE PROFILI</Text>
         </View>
 
-        {/* Video Fikirleri */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionNumber}>4</Text>
-            <Text style={styles.sectionTitle}>İzleyicinin İstediği 3 Video Konsepti & Giriş Cümleleri</Text>
+        <View style={s.sec}>
+          <View style={s.secHead}>
+            <Text style={s.secNum}>4</Text>
+            <Text style={s.secTitle}>
+              Izleyicinin Istedigi 3 Video Konsepti
+            </Text>
           </View>
-          <Text style={{ fontSize: 8, color: colors.muted, marginBottom: 8 }}>
-            Yorumlardaki en çok merak edilen sorulardan türetilmiş içerik önerileri.
-          </Text>
 
           {ideas.slice(0, 3).map((idea, idx) => (
-            <View key={idx} style={styles.card}>
-              <View style={styles.cardHeader}>
-                <Text style={{ fontSize: 8, fontWeight: 700, color: colors.accent }}>VİDEO FİKRİ #{idx + 1}</Text>
-                <View style={[styles.badge, styles.badgePositive]}>
-                  <Text style={{ fontSize: 7, fontWeight: 700 }}>{idea.audience_demand_score || "%90+ Kitle Talebi"}</Text>
+            <View key={String(idx)} style={s.card}>
+              <View style={s.cardHead}>
+                <Text
+                  style={{ fontSize: 8, fontWeight: 700, color: C.accent }}
+                >
+                  {"VIDEO FIKRI #" + String(idx + 1)}
+                </Text>
+                <View
+                  style={[
+                    s.badge,
+                    { backgroundColor: C.positiveSoft, color: C.positive },
+                  ]}
+                >
+                  <Text style={{ fontSize: 7, fontWeight: 700 }}>
+                    {safe(idea.audience_demand_score, "%90+ Kitle Talebi")}
+                  </Text>
                 </View>
               </View>
 
-              <Text style={{ fontSize: 9.5, fontWeight: 700, color: colors.ink, marginTop: 2 }}>
-                &ldquo;{idea.concept_title || ""}&rdquo;
+              <Text
+                style={{
+                  fontSize: 9.5,
+                  fontWeight: 700,
+                  color: C.ink,
+                  marginTop: 3,
+                }}
+              >
+                {safe(idea.concept_title)}
               </Text>
 
-              <View style={{ backgroundColor: colors.surfaceAlt, padding: 6, borderRadius: 4, marginTop: 4 }}>
-                <Text style={{ fontSize: 7.5, fontWeight: 700, color: colors.accent }}>🎯 İlk 15 Saniyede Söylenecek Giriş Cümlesi:</Text>
-                <Text style={{ fontSize: 8, color: "#334155", fontStyle: "italic", marginTop: 1 }}>{idea.hook || ""}</Text>
+              <View
+                style={{
+                  backgroundColor: C.surfaceAlt,
+                  padding: 6,
+                  borderRadius: 4,
+                  marginTop: 5,
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 7.5,
+                    fontWeight: 700,
+                    color: C.accent,
+                    marginBottom: 2,
+                  }}
+                >
+                  Ilk 15 Saniyede Soylenecek Giris Cumlesi:
+                </Text>
+                <Text style={{ fontSize: 8, color: "#334155" }}>
+                  {safe(idea.hook)}
+                </Text>
               </View>
 
-              <Text style={{ fontSize: 7.5, color: colors.muted, marginTop: 4 }}>
-                <Text style={{ fontWeight: 700, color: colors.ink }}>Neden Tutacak: </Text>
-                {idea.why_it_works || ""}
+              <Text
+                style={{ fontSize: 7.5, color: C.muted, marginTop: 4 }}
+              >
+                {"Neden Tutacak: " + safe(idea.why_it_works)}
               </Text>
             </View>
           ))}
         </View>
 
-        {/* Kitle Kimliği & Persona */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionNumber}>5</Text>
-            <Text style={styles.sectionTitle}>Kitle Profili ve İzleme Alışkanlıkları</Text>
+        {/* Kitle Profili */}
+        <View style={s.sec}>
+          <View style={s.secHead}>
+            <Text style={s.secNum}>5</Text>
+            <Text style={s.secTitle}>
+              Kitle Profili ve Izleme Aliskanliklari
+            </Text>
           </View>
           <View style={{ flexDirection: "row" }}>
-            <View style={[styles.kpiBox, { width: "32%", marginRight: 6 }]}>
-              <Text style={styles.kpiLabel}>01. Uzmanlık Seviyesi</Text>
-              <Text style={{ fontSize: 9, fontWeight: 700, color: colors.ink }}>{persona?.expertise_level || "Orta - İleri Seviye"}</Text>
+            <View style={[s.kpi, { width: "32%", marginRight: 6 }]}>
+              <Text style={s.kpiLabel}>01. Uzmanlik Seviyesi</Text>
+              <Text style={{ fontSize: 9, fontWeight: 700, color: C.ink }}>
+                {safe(persona?.expertise_level, "Orta - Ileri Seviye")}
+              </Text>
             </View>
-            <View style={[styles.kpiBox, { width: "32%", marginRight: 6 }]}>
-              <Text style={styles.kpiLabel}>02. Güven & Samimiyet</Text>
-              <Text style={{ fontSize: 9, fontWeight: 700, color: colors.cyan }}>{persona?.trust_sentiment || "Yüksek Güven"}</Text>
+            <View style={[s.kpi, { width: "32%", marginRight: 6 }]}>
+              <Text style={s.kpiLabel}>02. Guven ve Samimiyet</Text>
+              <Text style={{ fontSize: 9, fontWeight: 700, color: C.cyan }}>
+                {safe(persona?.trust_sentiment, "Yuksek Guven")}
+              </Text>
             </View>
-            <View style={[styles.kpiBoxLast, { width: "32%" }]}>
-              <Text style={styles.kpiLabel}>03. İzleme Sebebi</Text>
-              <Text style={{ fontSize: 9, fontWeight: 700, color: colors.positive }}>{persona?.primary_motive || "Bilgi ve Analiz"}</Text>
+            <View style={[s.kpiLast, { width: "32%" }]}>
+              <Text style={s.kpiLabel}>03. Izleme Sebebi</Text>
+              <Text
+                style={{ fontSize: 9, fontWeight: 700, color: C.positive }}
+              >
+                {safe(persona?.primary_motive, "Bilgi ve Analiz")}
+              </Text>
             </View>
           </View>
         </View>
 
-        <View style={styles.footer}>
-          <Text>CommentLab • Kanal Büyüme ve Kitle İstihbarat Raporu</Text>
+        <View style={s.footer}>
+          <Text>CommentLab - Kanal Raporu</Text>
           <Text>Sayfa 3 / 4</Text>
         </View>
       </Page>
 
-      {/* ================= SAYFA 4: SPONSORLUK & 90 GÜNLÜK PLAN ================= */}
-      <Page size="A4" style={styles.page}>
-        <View style={styles.brandRow}>
-          <Text style={styles.brand}>
-            Comment<Text style={styles.brandAccent}>Lab</Text>
+      {/* ========= SAYFA 4: SPONSORLUK & 90 GUN ========= */}
+      <Page size="A4" style={s.page}>
+        <View style={s.brandRow}>
+          <Text style={s.brand}>
+            Comment<Text style={s.brandAccent}>Lab</Text>
           </Text>
-          <Text style={styles.reportLabel}>BÖLÜM 04 • SPONSORLUK VE BÜYÜME PLANI</Text>
+          <Text style={s.label}>BOLUM 04 - SPONSORLUK VE BUYUME PLANI</Text>
         </View>
 
-        {/* Sponsorluk ve Gelir Fırsatları */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionNumber}>6</Text>
-            <Text style={styles.sectionTitle}>Sponsorluk & Gelir Fırsatları Rehberi</Text>
+        {/* Sponsorluk */}
+        <View style={s.sec}>
+          <View style={s.secHead}>
+            <Text style={s.secNum}>6</Text>
+            <Text style={s.secTitle}>
+              Sponsorluk ve Gelir Firsatlari Rehberi
+            </Text>
           </View>
 
-          {/* Satın Almaya Hazır Alanlar */}
-          {commercial?.target_spending_areas && commercial.target_spending_areas.length > 0 && (
-            <View style={[styles.card, { marginBottom: 8 }]}>
-              <Text style={{ fontSize: 8, fontWeight: 700, color: colors.positive, textTransform: "uppercase", marginBottom: 3 }}>
-                🛒 İzleyicinin Satın Almaya Hazır Olduğu Alanlar:
+          {spendingAreas.length > 0 && (
+            <View style={[s.card, { marginBottom: 7 }]}>
+              <Text
+                style={{
+                  fontSize: 8,
+                  fontWeight: 700,
+                  color: C.positive,
+                  textTransform: "uppercase",
+                  marginBottom: 3,
+                }}
+              >
+                Izleyicinin Satin Almaya Hazir Oldugu Alanlar:
               </Text>
-              {commercial.target_spending_areas.map((area, i) => (
-                <Text key={i} style={{ fontSize: 8, color: "#334155", marginBottom: 2 }}>
-                  • {area}
+              {spendingAreas.map((area, i) => (
+                <Text
+                  key={String(i)}
+                  style={{ fontSize: 8, color: "#334155", marginBottom: 2 }}
+                >
+                  {"- " + safe(area)}
                 </Text>
               ))}
             </View>
           )}
 
-          {/* Reklam Alma Tüyosu */}
-          {commercial?.ad_integration_tips && (
-            <View style={[styles.card, { backgroundColor: colors.warningSoft, borderColor: "#FDE68A", marginBottom: 8 }]}>
-              <Text style={{ fontSize: 8, fontWeight: 700, color: "#B45309", textTransform: "uppercase", marginBottom: 2 }}>
-                ⚠️ Kitleyi Kaçırmadan Sponsorluk Alma Kuralı:
-              </Text>
-              <Text style={{ fontSize: 8, color: "#92400E" }}>{commercial.ad_integration_tips}</Text>
-            </View>
-          )}
-
-          {/* Hazır Pitch Notu */}
-          <View style={[styles.summaryBox, { backgroundColor: colors.positiveSoft, borderColor: "#A7F3D0" }]}>
-            <Text style={{ fontSize: 8, fontWeight: 700, color: colors.positive, textTransform: "uppercase", marginBottom: 2 }}>
-              ✉️ Markalara / Ajanslara Gönderilecek Hazır E-posta Cümlesi (Pitch):
+          <View
+            style={[
+              s.card,
+              {
+                backgroundColor: C.warningSoft,
+                borderColor: "#E8D5A0",
+                marginBottom: 7,
+              },
+            ]}
+          >
+            <Text
+              style={{
+                fontSize: 8,
+                fontWeight: 700,
+                color: C.warning,
+                textTransform: "uppercase",
+                marginBottom: 2,
+              }}
+            >
+              Kitleyi Kaybetmeden Sponsorluk Alma Kurali:
             </Text>
-            <Text style={{ fontSize: 8.5, color: "#065F46", fontStyle: "italic", lineHeight: 1.4 }}>
-              &ldquo;{commercial?.monetization_pitch || "Kanal izleyicileri tavsiye edilen ürün ve araçlara yüksek güven duymaktadır."}&rdquo;
+            <Text style={{ fontSize: 8, color: "#6B5320" }}>{adTips}</Text>
+          </View>
+
+          <View
+            style={[
+              s.box,
+              { backgroundColor: C.positiveSoft, borderColor: "#B5DFC5" },
+            ]}
+          >
+            <Text
+              style={{
+                fontSize: 8,
+                fontWeight: 700,
+                color: C.positive,
+                textTransform: "uppercase",
+                marginBottom: 3,
+              }}
+            >
+              Markalara Gonderilecek Hazir E-posta Cumlesi (Pitch):
+            </Text>
+            <Text style={{ fontSize: 8.5, color: "#2D5A3C", lineHeight: 1.4 }}>
+              {pitch}
             </Text>
           </View>
         </View>
 
-        {/* 90 Günlük Eylem Planı */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionNumber}>7</Text>
-            <Text style={styles.sectionTitle}>90-Günlük Adım Adım Büyüme Planı</Text>
-          </View>
-
-          <View style={[styles.card, { marginBottom: 6 }]}>
-            <Text style={{ fontSize: 8, fontWeight: 700, color: colors.accent }}>01 - 30 GÜN: HIZLI DÜZELTMELER VE GİRİŞ TEMPOSU</Text>
-            <Text style={{ fontSize: 8.5, color: "#334155", marginTop: 2 }}>
-              {blueprint?.day_30_focus || "İlk 15 saniyelik giriş temposunu optimize edin."}
+        {/* 90 Gun */}
+        <View style={s.sec}>
+          <View style={s.secHead}>
+            <Text style={s.secNum}>7</Text>
+            <Text style={s.secTitle}>
+              90 Gunluk Adim Adim Buyume Plani
             </Text>
           </View>
 
-          <View style={[styles.card, { marginBottom: 6 }]}>
-            <Text style={{ fontSize: 8, fontWeight: 700, color: colors.warning }}>30 - 60 GÜN: İÇERİK MOTORU VE SERİ VİDEOLAR</Text>
-            <Text style={{ fontSize: 8.5, color: "#334155", marginTop: 2 }}>
-              {blueprint?.day_60_focus || "En çok talep edilen 3 video konusunu yayına alın."}
+          <View style={[s.card, { marginBottom: 6 }]}>
+            <Text
+              style={{ fontSize: 8, fontWeight: 700, color: C.accent }}
+            >
+              01 - 30 GUN: HIZLI DUZELTMELER
             </Text>
-          </View>
-
-          <View style={[styles.card, { marginBottom: 6 }]}>
-            <Text style={{ fontSize: 8, fontWeight: 700, color: colors.positive }}>60 - 90 GÜN: TOPLULUK SADAKATİ VE GELİR</Text>
             <Text style={{ fontSize: 8.5, color: "#334155", marginTop: 2 }}>
-              {blueprint?.day_90_focus || "Kitle bağlılığını sponsorluk ve topluluk gelirine dönüştürün."}
-            </Text>
-          </View>
-
-          {strategy && (strategy.action || strategy.insight) && (
-            <View style={[styles.summaryBox, { marginTop: 6, backgroundColor: colors.surfaceAlt }]}>
-              <Text style={{ fontSize: 8, fontWeight: 700, color: colors.accent, textTransform: "uppercase", marginBottom: 2 }}>
-                ⚡ En Yüksek Etkili Tek Stratejik Adım:
-              </Text>
-              <Text style={{ fontSize: 9, fontWeight: 700, color: colors.ink }}>{strategy.action || ""}</Text>
-              {strategy.expected_impact && (
-                <Text style={{ fontSize: 7.5, color: colors.muted, marginTop: 2 }}>Beklenen Fayda: {strategy.expected_impact}</Text>
+              {safe(
+                blueprint?.day_30_focus,
+                "Ilk 15 saniyeyi optimize edin."
               )}
+            </Text>
+          </View>
+
+          <View style={[s.card, { marginBottom: 6 }]}>
+            <Text
+              style={{ fontSize: 8, fontWeight: 700, color: C.warning }}
+            >
+              30 - 60 GUN: ICERIK SERISI
+            </Text>
+            <Text style={{ fontSize: 8.5, color: "#334155", marginTop: 2 }}>
+              {safe(
+                blueprint?.day_60_focus,
+                "En cok talep edilen 3 konuyu yayinlayin."
+              )}
+            </Text>
+          </View>
+
+          <View style={[s.card, { marginBottom: 6 }]}>
+            <Text
+              style={{ fontSize: 8, fontWeight: 700, color: C.positive }}
+            >
+              60 - 90 GUN: TOPLULUK VE GELIR
+            </Text>
+            <Text style={{ fontSize: 8.5, color: "#334155", marginTop: 2 }}>
+              {safe(
+                blueprint?.day_90_focus,
+                "Kitle sadakatini gelire donusturun."
+              )}
+            </Text>
+          </View>
+
+          {strategy && (strategy.action || strategy.insight) ? (
+            <View
+              style={[
+                s.box,
+                { marginTop: 4, backgroundColor: C.surfaceAlt },
+              ]}
+            >
+              <Text
+                style={{
+                  fontSize: 8,
+                  fontWeight: 700,
+                  color: C.accent,
+                  textTransform: "uppercase",
+                  marginBottom: 3,
+                }}
+              >
+                En Yuksek Etkili Stratejik Adim:
+              </Text>
+              <Text
+                style={{ fontSize: 9, fontWeight: 700, color: C.ink }}
+              >
+                {safe(strategy.action)}
+              </Text>
+              {strategy.expected_impact ? (
+                <Text
+                  style={{
+                    fontSize: 7.5,
+                    color: C.muted,
+                    marginTop: 2,
+                  }}
+                >
+                  {"Beklenen Fayda: " + strategy.expected_impact}
+                </Text>
+              ) : null}
             </View>
-          )}
+          ) : null}
         </View>
 
-        <View style={styles.footer}>
-          <Text>CommentLab • www.commentlab.io</Text>
+        <View style={s.footer}>
+          <Text>CommentLab - www.commentlab.io</Text>
           <Text>Sayfa 4 / 4</Text>
         </View>
       </Page>

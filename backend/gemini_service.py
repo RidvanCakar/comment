@@ -288,7 +288,7 @@ async def _generate_with_retry_async(prompt: str, api_key: str | None = None) ->
                 model = genai.GenerativeModel(model_name)
                 response = await model.generate_content_async(
                     prompt,
-                    generation_config={"response_mime_type": "application/json", "temperature": 0.1},
+                    generation_config={"response_mime_type": "application/json", "temperature": 0.0},
                 )
                 if response and response.text:
                     return response.text.strip()
@@ -575,12 +575,14 @@ async def analyze_channel_insights(video_reports: List[Dict[str, Any]], api_key:
     pos_scores: List[float] = []
     neg_scores: List[float] = []
     net_scores: List[float] = []
+    total_comments_all = 0
 
     reports_payload = []
     for idx, report in enumerate(sorted_reports, 1):
         v_title = report.get("video_title") or report.get("title") or f"Video {idx}"
         v_published = report.get("published_at") or "Bilinmeyen Tarih"
         v_comments = report.get("comment_count_analyzed", 0)
+        total_comments_all += int(v_comments or 0)
         
         analysis_data = report.get("analysis") or report
         sentiment = analysis_data.get("sentiment_distribution", {})
@@ -617,11 +619,6 @@ async def analyze_channel_insights(video_reports: List[Dict[str, Any]], api_key:
         mid = max(1, len(net_scores) // 2)
         early_net = sum(net_scores[:mid]) / mid
         recent_net = sum(net_scores[mid:]) / (len(net_scores) - mid)
-    # Matematiksel Trend: İlk yarı videoları vs Son yarı videoları
-    if len(net_scores) >= 2:
-        mid = max(1, len(net_scores) // 2)
-        early_net = sum(net_scores[:mid]) / mid
-        recent_net = sum(net_scores[mid:]) / (len(net_scores) - mid)
         net_delta = recent_net - early_net
 
         if net_delta >= 3.0:
@@ -634,12 +631,21 @@ async def analyze_channel_insights(video_reports: List[Dict[str, Any]], api_key:
         net_delta = 0.0
         math_trend = "dengeli"
 
-    # Matematiksel Sağlık ve Sadakat Skoru
-    avg_pos = sum(pos_scores) / max(1, len(pos_scores)) if pos_scores else 75.0
-    avg_neg = sum(neg_scores) / max(1, len(neg_scores)) if neg_scores else 15.0
-    math_health_score = int(round(max(10, min(98, (avg_pos * 0.9) - (avg_neg * 0.5) + 15))))
-    math_loyalty = int(round(max(30, min(95, avg_pos * 0.95))))
-    math_resonance = int(round(max(40, min(98, 100 - (avg_neg * 1.5)))))
+    # --- DETERMİNİSTİK SKOR HESAPLAMA (AI'dan bağımsız, tamamen veri tabanlı) ---
+    avg_pos = sum(pos_scores) / max(1, len(pos_scores)) if pos_scores else 0.0
+    avg_neg = sum(neg_scores) / max(1, len(neg_scores)) if neg_scores else 0.0
+
+    # Sadakat Oranı (Superfan İndeksi): Pozitif + Yapıcı (nötr) yorum oranı
+    # Formül: (avg_positive + avg_neutral * 0.3) / 100 * 100, min 5, max 95
+    avg_neu = 100.0 - avg_pos - avg_neg
+    math_loyalty = int(round(max(5, min(95, avg_pos + avg_neu * 0.3))))
+
+    # Kitle Rezonansı (Beklenti Uyumu): 100 - (negatif yüzde * 1.2)
+    math_resonance = int(round(max(5, min(98, 100 - (avg_neg * 1.2)))))
+
+    # Kanal Sağlık Skoru: (Sadakat * 0.4) + (Rezonans * 0.4) + (Net Memnuniyet bileşeni * 0.2)
+    net_component = max(0, min(100, 50 + (avg_pos - avg_neg) * 0.5))
+    math_health_score = int(round(max(5, min(98, math_loyalty * 0.4 + math_resonance * 0.4 + net_component * 0.2))))
 
     if math_health_score >= 80:
         math_verdict = "Güçlü Kitle Bağlılığı"
@@ -780,27 +786,10 @@ Yanıtı SADECE geçerli bir JSON olarak döndür.
         # channel_title fallback
         result["channel_title"] = result.get("channel_title") or detected_channel_title
 
-        # overall_health_score normalizasyonu (0 - 100 int)
-        try:
-            score = int(result.get("overall_health_score", math_health_score))
-            score = max(min(score, math_health_score + 10), math_health_score - 10)
-            result["overall_health_score"] = max(0, min(100, score))
-        except (ValueError, TypeError):
-            result["overall_health_score"] = math_health_score
-
-        # loyalty_rate normalizasyonu
-        try:
-            loyalty = int(result.get("loyalty_rate", math_loyalty))
-            result["loyalty_rate"] = max(0, min(100, loyalty))
-        except (ValueError, TypeError):
-            result["loyalty_rate"] = math_loyalty
-
-        # audience_resonance normalizasyonu
-        try:
-            resonance = int(result.get("audience_resonance", math_resonance))
-            result["audience_resonance"] = max(0, min(100, resonance))
-        except (ValueError, TypeError):
-            result["audience_resonance"] = math_resonance
+        # --- DETERMİNİSTİK SKORLAR: Gemini çıktısını yok say, matematiksel değerleri zorla ---
+        result["overall_health_score"] = math_health_score
+        result["loyalty_rate"] = math_loyalty
+        result["audience_resonance"] = math_resonance
 
         # retention_verdict
         verdict = str(result.get("retention_verdict", math_verdict)).strip()

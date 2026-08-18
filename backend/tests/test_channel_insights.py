@@ -117,7 +117,9 @@ async def test_analyze_channel_insights_with_mock():
         result = await analyze_channel_insights(mock_video_reports, api_key="fake_key")
 
         assert result["channel_title"] == "Mega Channel"
-        assert result["overall_health_score"] == 85
+        assert result["overall_health_score"] == 83
+        assert result["loyalty_rate"] == 79
+        assert result["audience_resonance"] == 87
         assert result["sentiment_trend"] == "yukseliste"
         assert len(result["recurring_issues"]) == 1
         assert result["recurring_issues"][0]["issue"] == "Ses kalitesi"

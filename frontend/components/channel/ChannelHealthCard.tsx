@@ -113,7 +113,7 @@ export default function ChannelHealthCard({
             @{report.channel_title || "YouTube Kanalı"}
           </h1>
           <div className="inline-flex items-center gap-2 rounded-xl border border-border-subtle bg-bg-base/70 px-3.5 py-1.5 font-mono text-xs text-text-muted">
-            <span>KİTLE KORUMA VERDİCT&apos;İ:</span>
+            <span>Kitle Durum Özeti:</span>
             <strong className={`font-bold ${scoreTextColor}`}>{verdict}</strong>
           </div>
           <p className="text-sm leading-relaxed text-text-muted sm:text-base pt-1">
